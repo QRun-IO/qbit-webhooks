@@ -13,11 +13,14 @@ API-versioned JSON payloads).
   `R:/Git.Local/KofTwentyTwo/second-brain/knowledge/qqq/qqq-hub.md`
   — read `architecture/metadata-model.md` first for QBit mechanics.
 
-Key cautions from the review (see dossier for details):
+Key cautions (see dossier for details; it predates the parent 2.0.0 re-pin):
 
-- develop and main have diverged (8/8): main has Java 21 + parent 1.5.1 + Apache-2.0
-  LICENSE + v0.3.0; develop has the qqq-bom 0.40.0-SNAPSHOT pin + AGPL LICENSE.
-- develop depends on a frozen SNAPSHOT (`qqq-bom-pom:0.40.0-SNAPSHOT`); 0.40.0 GA exists.
-- pom `<licenses>` and all source headers still declare AGPL-3.0 on both branches.
-- Test code has two qqq-4.0 breaks: `com.kingsrook.qqq.backend.javalin.QJavalinMetaData`
-  (BREAK-01 package rename) and `qInstance.setAuthentication(...)` (BREAK-04-11).
+- Default builds take the qqq version only from `qbit-build-parent` (2.0.0 = qqq 4.0.0);
+  do not add an always-on `qqq-bom-pom` import. To check the next qqq line, run
+  `mvn -B verify -Pqqq-snapshot` (4.1.0-SNAPSHOT; override with `-Dqqq.snapshot.version`).
+- Licensing metadata is contradictory: LICENSE/NOTICE = Apache-2.0 (from main); pom
+  `<licenses>`, source headers and `checkstyle/license.txt` = AGPL-3.0; README footer says
+  proprietary. Alignment is an owner decision.
+- The README (from main) documents an API that does not exist here (`WebhooksQBit`,
+  `QWebhookMetaData`, HMAC signing, `webhook_log`). Trust the source: entry points are
+  `WebhooksQBitProducer`, `WebhooksRegistry` and `WebhookEventType`.

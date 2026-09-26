@@ -82,7 +82,7 @@ public class WebhooksTestApplication extends AbstractQQQApplication
    {
       QInstance qInstance = new QInstance();
 
-      qInstance.setAuthentication(new QAuthenticationMetaData().withType(QAuthenticationType.FULLY_ANONYMOUS));
+      qInstance.withInstanceDefaultAuthentication(new QAuthenticationMetaData().withType(QAuthenticationType.FULLY_ANONYMOUS));
 
       qInstance.addBackend(new QBackendMetaData()
          .withName(MEMORY_BACKEND_NAME)
