@@ -3,11 +3,23 @@ version: 2.1
 orbs:
   qqq-orb: kingsrook/qqq-orb@0.5.0
 
+commands:
+  configure-package-install:
+    steps:
+      - run:
+          name: Keep package installation unattended
+          command: |
+            # These build machines are discarded after the job.
+            sudo install -d /etc/needrestart/conf.d
+            printf '%s\n' '$nrconf{restart} = "l";' | sudo tee /etc/needrestart/conf.d/99-qqq-ci.conf >/dev/null
+
 workflows:
 
   test_only:
     jobs:
       - qqq-orb/mvn_test_only:
+          pre-steps:
+            - configure-package-install
           context: [ qqq-maven-registry-credentials ]
           filters:
             branches:
@@ -18,6 +30,8 @@ workflows:
   publish_snapshot:
     jobs:
       - qqq-orb/mvn_publish:
+          pre-steps:
+            - configure-package-install
           context: [ qqq-maven-registry-credentials ]
           branch_type: snapshot
           filters:
@@ -28,6 +42,8 @@ workflows:
   publish_release_candidate:
     jobs:
       - qqq-orb/mvn_publish:
+          pre-steps:
+            - configure-package-install
           context: [ qqq-maven-registry-credentials ]
           branch_type: release_candidate
           filters:
@@ -38,6 +54,8 @@ workflows:
   publish_release:
     jobs:
       - qqq-orb/mvn_publish:
+          pre-steps:
+            - configure-package-install
           context: [ qqq-maven-registry-credentials ]
           branch_type: release
           filters:
@@ -49,6 +67,8 @@ workflows:
   publish_hotfix_release:
     jobs:
       - qqq-orb/mvn_publish:
+          pre-steps:
+            - configure-package-install
           context: [ qqq-maven-registry-credentials ]
           branch_type: hotfix
           filters:
