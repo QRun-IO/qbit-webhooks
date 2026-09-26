@@ -46,7 +46,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.processes.QBackendStepMetaD
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QProcessMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.modules.backend.implementations.memory.MemoryBackendModule;
-import com.kingsrook.qqq.backend.javalin.QJavalinMetaData;
+import com.kingsrook.qqq.middleware.javalin.QJavalinMetaData;
 import com.kingsrook.qqq.middleware.javalin.metadata.JavalinRouteProviderMetaData;
 import com.kingsrook.qqq.middleware.javalin.routeproviders.ProcessBasedRouterPayload;
 
@@ -70,7 +70,7 @@ public class WebhooksTestReceiverApplication extends AbstractQQQApplication
    {
       QInstance qInstance = new QInstance();
 
-      qInstance.setAuthentication(new QAuthenticationMetaData().withType(QAuthenticationType.FULLY_ANONYMOUS));
+      qInstance.withInstanceDefaultAuthentication(new QAuthenticationMetaData().withType(QAuthenticationType.FULLY_ANONYMOUS));
 
       qInstance.addBackend(new QBackendMetaData()
          .withName(MEMORY_BACKEND_NAME)

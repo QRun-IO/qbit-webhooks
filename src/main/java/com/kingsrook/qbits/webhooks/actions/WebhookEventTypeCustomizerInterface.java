@@ -73,8 +73,8 @@ public interface WebhookEventTypeCustomizerInterface
 
       customizeEventContent(sourceRecord, webhookEventTypeName, apiName, apiVersion, postBody);
 
-      String json = JsonUtils.toJson(postBody, mapper ->
-         mapper.setSerializationInclusion(JsonInclude.Include.ALWAYS));
+      String json = JsonUtils.toJsonCustomized(postBody, builder ->
+         builder.serializationInclusion(JsonInclude.Include.ALWAYS));
 
       return new WebhookEventContent().withPostBody(json);
    }

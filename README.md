@@ -24,7 +24,7 @@ This QBit sends HTTP callbacks when records are inserted, updated, or deleted. C
 
 ### Prerequisites
 
-- QQQ application (v0.35.0+)
+- QQQ application (v4.0.0+)
 - Database backend configured
 
 ### Installation
