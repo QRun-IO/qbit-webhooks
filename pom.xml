@@ -128,36 +128,6 @@
 
    <build>
       <plugins>
-         <!-- TEMPORARY (1.0 PR): the 0.x sources stay in the tree until their removal is approved; they are not compiled. -->
-         <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-compiler-plugin</artifactId>
-            <configuration>
-               <excludes>
-                  <exclude>com/kingsrook/qbits/webhooks/actions/**</exclude>
-                  <exclude>com/kingsrook/qbits/webhooks/model/**</exclude>
-                  <exclude>com/kingsrook/qbits/webhooks/tables/**</exclude>
-                  <exclude>com/kingsrook/qbits/webhooks/registry/WebhooksRegistryEnricherPlugin.java</exclude>
-                  <exclude>com/kingsrook/qbits/webhooks/registry/WebhooksRegistryValidatorPlugin.java</exclude>
-                  <exclude>com/kingsrook/qbits/webhooks/processes/ManageWebhookHealth*.java</exclude>
-                  <exclude>com/kingsrook/qbits/webhooks/processes/SendTestEventToWebhook*.java</exclude>
-                  <exclude>com/kingsrook/qbits/webhooks/processes/SendWebhookEvent*.java</exclude>
-                  <exclude>com/kingsrook/qbits/webhooks/processes/SyncWebhookScheduledJobProcess.java</exclude>
-               </excludes>
-               <testExcludes>
-                  <testExclude>com/kingsrook/qbits/webhooks/BaseTest.java</testExclude>
-                  <testExclude>com/kingsrook/qbits/webhooks/WebhooksQBitConfigTest.java</testExclude>
-                  <testExclude>com/kingsrook/qbits/webhooks/WebhooksTestApplication.java</testExclude>
-                  <testExclude>com/kingsrook/qbits/webhooks/WebhooksTestJavalinServer.java</testExclude>
-                  <testExclude>com/kingsrook/qbits/webhooks/WebhooksTestReceiver*.java</testExclude>
-                  <testExclude>com/kingsrook/qbits/webhooks/actions/**</testExclude>
-                  <testExclude>com/kingsrook/qbits/webhooks/processes/ManageWebhookHealthTransformStepTest.java</testExclude>
-                  <testExclude>com/kingsrook/qbits/webhooks/processes/SendTestEventToWebhookLoadStepTest.java</testExclude>
-                  <testExclude>com/kingsrook/qbits/webhooks/processes/SendWebhookEvent*Test.java</testExclude>
-                  <testExclude>com/kingsrook/qbits/webhooks/registry/WebhooksRegistryValidationAndEnrichmentTest.java</testExclude>
-               </testExcludes>
-            </configuration>
-         </plugin>
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-checkstyle-plugin</artifactId>
@@ -178,8 +148,6 @@
                <failOnViolation>true</failOnViolation>
                <violationSeverity>warning</violationSeverity>
                <includeTestSourceDirectory>false</includeTestSourceDirectory>
-               <!-- TEMPORARY (1.0 PR): the uncompiled 0.x sources, until their removal is approved. -->
-               <excludes>com/kingsrook/qbits/webhooks/actions/**,com/kingsrook/qbits/webhooks/model/**,com/kingsrook/qbits/webhooks/tables/**,com/kingsrook/qbits/webhooks/registry/WebhooksRegistry*Plugin.java,com/kingsrook/qbits/webhooks/processes/ManageWebhookHealth*.java,com/kingsrook/qbits/webhooks/processes/SendTestEventToWebhook*.java,com/kingsrook/qbits/webhooks/processes/SendWebhookEvent*.java,com/kingsrook/qbits/webhooks/processes/SyncWebhookScheduledJobProcess.java</excludes>
             </configuration>
             <executions>
                <execution>

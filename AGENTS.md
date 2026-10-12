@@ -52,12 +52,6 @@ Design: `docs/DESIGN.md` (from QRun-IO/qqq#1105). Inbound webhooks are phase 2 (
 
 3-space indent, braces on the next line, `return (x);`, flower-box Javadoc on every class and method, fluent `withX()` setters.
 
-## Temporary (until the owner approves removing them)
-
-- The 0.x sources (`actions/`, `model/`, `tables/`, the old `processes/*`, `registry/*Plugin`) are still in the tree.
-- `pom.xml` excludes them from compile, test-compile and Checkstyle.
-- Delete them and the excludes together.
-
 ## Release
 
 - CircleCI qqq-orb 0.6.8.
