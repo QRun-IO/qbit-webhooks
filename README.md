@@ -151,4 +151,4 @@ Stable and production-ready.
 
 ## License
 
-Proprietary - QRun.IO
+Apache-2.0 - See [LICENSE](LICENSE) and [NOTICE](NOTICE).
