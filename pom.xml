@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   ~ QQQ - Low-code Application Framework for Engineers.
-  ~ Copyright (C) 2021-2022.  Kingsrook, LLC
+  ~ Copyright (C) 2021-2026.  Kingsrook, LLC
   ~ 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
   ~ contact@kingsrook.com
   ~ https://github.com/Kingsrook/
@@ -20,9 +20,13 @@
   -->
 
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-   
+
    <properties>
-      <revision>0.4.0-SNAPSHOT</revision>
+      <revision>1.0.0-SNAPSHOT</revision>
+      <maven.compiler.source>21</maven.compiler.source>
+      <maven.compiler.target>21</maven.compiler.target>
+      <jacoco.version>0.8.15</jacoco.version>
+      <h2.version>2.2.224</h2.version>
    </properties>
 
    <parent>
@@ -34,11 +38,11 @@
    <groupId>com.kingsrook.qbits</groupId>
    <artifactId>qbit-webhooks</artifactId>
    <version>${revision}</version>
-   <packaging>jar</packaging>   
+   <packaging>jar</packaging>
 
    <name>QBit Webhooks</name>
-   <description>Webhook implementation for QQQ applications, enabling real-time event notifications to external systems and partners</description>
-   <url>https://github.com/Kingsrook/qbit-webhooks</url>
+   <description>QBit for signed, SSRF-safe outbound webhooks from QQQ applications: table, process, ESB and custom events, subscriptions, retries, dead letters and endpoint health</description>
+   <url>https://github.com/QRun-IO/qbit-webhooks</url>
 
    <modelVersion>4.0.0</modelVersion>
 
@@ -61,34 +65,43 @@
    </developers>
 
    <scm>
-      <connection>scm:git:git://github.com/Kingsrook/qbit-webhooks.git</connection>
-      <developerConnection>scm:git:ssh://github.com:Kingsrook/qbit-webhooks.git</developerConnection>
-      <url>https://github.com/Kingsrook/qbit-webhooks</url>
+      <connection>scm:git:git://github.com/QRun-IO/qbit-webhooks.git</connection>
+      <developerConnection>scm:git:ssh://github.com:QRun-IO/qbit-webhooks.git</developerConnection>
+      <url>https://github.com/QRun-IO/qbit-webhooks</url>
       <tag>HEAD</tag>
    </scm>
-
-   <dependencyManagement>
-      <dependencies>
-         <dependency>
-            <groupId>org.junit</groupId>
-            <artifactId>junit-bom</artifactId>
-            <version>5.10.0</version>
-            <type>pom</type>
-            <scope>import</scope>
-         </dependency>
-      </dependencies>
-   </dependencyManagement>
 
    <dependencies>
       <dependency>
          <groupId>com.kingsrook.qqq</groupId>
          <artifactId>qqq-backend-core</artifactId>
       </dependency>
+
+      <!-- Optional: render payloads through a QQQ API version (subscription apiName / apiVersion). -->
       <dependency>
          <groupId>com.kingsrook.qqq</groupId>
-         <artifactId>qqq-middleware-api</artifactId> 
+         <artifactId>qqq-middleware-api</artifactId>
+         <optional>true</optional>
       </dependency>
 
+      <!-- Optional: consume ESB topics (WebhooksEsbSource). -->
+      <dependency>
+         <groupId>com.kingsrook.qqq</groupId>
+         <artifactId>qqq-esb</artifactId>
+         <optional>true</optional>
+      </dependency>
+
+      <dependency>
+         <groupId>com.kingsrook.qqq</groupId>
+         <artifactId>qqq-backend-module-rdbms</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>com.h2database</groupId>
+         <artifactId>h2</artifactId>
+         <version>${h2.version}</version>
+         <scope>test</scope>
+      </dependency>
       <dependency>
          <groupId>org.junit.jupiter</groupId>
          <artifactId>junit-jupiter</artifactId>
@@ -102,14 +115,128 @@
       </dependency>
    </dependencies>
 
+   <build>
+      <plugins>
+         <!-- TEMPORARY (1.0 PR): the 0.x sources stay in the tree until their removal is approved; they are not compiled. -->
+         <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+               <excludes>
+                  <exclude>com/kingsrook/qbits/webhooks/actions/**</exclude>
+                  <exclude>com/kingsrook/qbits/webhooks/model/**</exclude>
+                  <exclude>com/kingsrook/qbits/webhooks/tables/**</exclude>
+                  <exclude>com/kingsrook/qbits/webhooks/registry/WebhooksRegistryEnricherPlugin.java</exclude>
+                  <exclude>com/kingsrook/qbits/webhooks/registry/WebhooksRegistryValidatorPlugin.java</exclude>
+                  <exclude>com/kingsrook/qbits/webhooks/processes/ManageWebhookHealth*.java</exclude>
+                  <exclude>com/kingsrook/qbits/webhooks/processes/SendTestEventToWebhook*.java</exclude>
+                  <exclude>com/kingsrook/qbits/webhooks/processes/SendWebhookEvent*.java</exclude>
+                  <exclude>com/kingsrook/qbits/webhooks/processes/SyncWebhookScheduledJobProcess.java</exclude>
+               </excludes>
+               <testExcludes>
+                  <testExclude>com/kingsrook/qbits/webhooks/BaseTest.java</testExclude>
+                  <testExclude>com/kingsrook/qbits/webhooks/WebhooksQBitConfigTest.java</testExclude>
+                  <testExclude>com/kingsrook/qbits/webhooks/WebhooksTestApplication.java</testExclude>
+                  <testExclude>com/kingsrook/qbits/webhooks/WebhooksTestJavalinServer.java</testExclude>
+                  <testExclude>com/kingsrook/qbits/webhooks/WebhooksTestReceiver*.java</testExclude>
+                  <testExclude>com/kingsrook/qbits/webhooks/actions/**</testExclude>
+                  <testExclude>com/kingsrook/qbits/webhooks/processes/ManageWebhookHealthTransformStepTest.java</testExclude>
+                  <testExclude>com/kingsrook/qbits/webhooks/processes/SendTestEventToWebhookLoadStepTest.java</testExclude>
+                  <testExclude>com/kingsrook/qbits/webhooks/processes/SendWebhookEvent*Test.java</testExclude>
+                  <testExclude>com/kingsrook/qbits/webhooks/registry/WebhooksRegistryValidationAndEnrichmentTest.java</testExclude>
+               </testExcludes>
+            </configuration>
+         </plugin>
+         <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-checkstyle-plugin</artifactId>
+            <version>3.3.1</version>
+            <dependencies>
+               <dependency>
+                  <groupId>com.puppycrawl.tools</groupId>
+                  <artifactId>checkstyle</artifactId>
+                  <version>10.12.6</version>
+               </dependency>
+            </dependencies>
+            <configuration>
+               <configLocation>checkstyle/config.xml</configLocation>
+               <headerLocation>checkstyle/license.txt</headerLocation>
+               <encoding>UTF-8</encoding>
+               <consoleOutput>true</consoleOutput>
+               <failsOnError>false</failsOnError>
+               <failOnViolation>true</failOnViolation>
+               <violationSeverity>warning</violationSeverity>
+               <includeTestSourceDirectory>false</includeTestSourceDirectory>
+               <!-- TEMPORARY (1.0 PR): the uncompiled 0.x sources, until their removal is approved. -->
+               <excludes>com/kingsrook/qbits/webhooks/actions/**,com/kingsrook/qbits/webhooks/model/**,com/kingsrook/qbits/webhooks/tables/**,com/kingsrook/qbits/webhooks/registry/WebhooksRegistry*Plugin.java,com/kingsrook/qbits/webhooks/processes/ManageWebhookHealth*.java,com/kingsrook/qbits/webhooks/processes/SendTestEventToWebhook*.java,com/kingsrook/qbits/webhooks/processes/SendWebhookEvent*.java,com/kingsrook/qbits/webhooks/processes/SyncWebhookScheduledJobProcess.java</excludes>
+            </configuration>
+            <executions>
+               <execution>
+                  <id>validate</id>
+                  <phase>validate</phase>
+                  <goals>
+                     <goal>check</goal>
+                  </goals>
+               </execution>
+            </executions>
+         </plugin>
+         <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <version>${jacoco.version}</version>
+            <executions>
+               <execution>
+                  <id>prepare-agent</id>
+                  <goals>
+                     <goal>prepare-agent</goal>
+                  </goals>
+               </execution>
+               <execution>
+                  <id>report</id>
+                  <phase>verify</phase>
+                  <goals>
+                     <goal>report</goal>
+                  </goals>
+               </execution>
+               <execution>
+                  <id>check</id>
+                  <goals>
+                     <goal>check</goal>
+                  </goals>
+                  <configuration>
+                     <rules>
+                        <rule>
+                           <element>BUNDLE</element>
+                           <limits>
+                              <limit>
+                                 <counter>INSTRUCTION</counter>
+                                 <value>COVEREDRATIO</value>
+                                 <minimum>0.70</minimum>
+                              </limit>
+                              <limit>
+                                 <counter>CLASS</counter>
+                                 <value>COVEREDRATIO</value>
+                                 <minimum>0.90</minimum>
+                              </limit>
+                           </limits>
+                        </rule>
+                     </rules>
+                  </configuration>
+               </execution>
+            </executions>
+         </plugin>
+      </plugins>
+   </build>
+
    <profiles>
-      <!-- Opt-in check against the next qqq line: mvn -B verify -Pqqq-snapshot       -->
-      <!-- (override the version with -Dqqq.snapshot.version=...).  Default builds   -->
-      <!-- take the qqq version only from qbit-build-parent.                         -->
+      <!-- QQQ 4.1 APIs until qbit-build-parent imports the 4.1 BOM (as in qbit-quick-search and qbit-cdn, ADR-0007). -->
       <profile>
          <id>qqq-snapshot</id>
+         <activation>
+            <activeByDefault>true</activeByDefault>
+         </activation>
          <properties>
-            <qqq.snapshot.version>4.1.0-SNAPSHOT</qqq.snapshot.version>
+            <qqq.snapshot.version>4.1.0-RC.4</qqq.snapshot.version>
          </properties>
          <dependencyManagement>
             <dependencies>
@@ -122,19 +249,6 @@
                </dependency>
             </dependencies>
          </dependencyManagement>
-         <repositories>
-            <repository>
-               <id>sonatype-snapshots</id>
-               <url>https://central.sonatype.com/repository/maven-snapshots/</url>
-               <releases>
-                  <enabled>false</enabled>
-               </releases>
-               <snapshots>
-                  <enabled>true</enabled>
-               </snapshots>
-            </repository>
-         </repositories>
       </profile>
    </profiles>
-
 </project>

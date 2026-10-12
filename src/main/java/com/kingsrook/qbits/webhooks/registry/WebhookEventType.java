@@ -22,47 +22,40 @@ package com.kingsrook.qbits.webhooks.registry;
 
 
 import java.io.Serializable;
-import com.kingsrook.qbits.webhooks.model.WebhookEventCategory;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 
 
 /*******************************************************************************
- ** A specific event type for which the application can send webhook events.
+ ** A kind of event that endpoints can subscribe to, such as
+ ** {@code cms_blog_post.updated} or {@code post.published}.
+ **
+ ** <p>Table and process types are registered automatically from the qbit
+ ** config ({@code tableEventSources}, {@code processEventSources},
+ ** {@code esbTableEventSources}). Custom types are registered in code with
+ ** {@link WebhooksRegistry#register(WebhookEventType)}.</p>
+ **
+ ** <p>Optional {@code fieldName} narrows a table type: an update fires only
+ ** when that field changed, and with {@code value} only when it changed to that
+ ** value (a collection means any of them). The optional {@code customizer}
+ ** shapes the payload in code ({@link WebhookPayloadCustomizerInterface}).</p>
  *******************************************************************************/
 public class WebhookEventType implements Serializable
 {
-   private String               name;
-   private String               label;
-   private WebhookEventCategory category;
-   private String               tableName;
-   private String               fieldName;
-   private Serializable         value;
-   private QCodeReference       customizer;
+   private String           name;
+   private String           label;
+   private String           description;
+   private WebhookEventKind kind;
+   private String           tableName;
+   private String           processName;
+   private String           fieldName;
+   private Serializable     value;
+   private Boolean          remote = false;
+   private QCodeReference   customizer;
 
 
 
    /*******************************************************************************
-    ** Getter for name
-    *******************************************************************************/
-   public String getName()
-   {
-      return (this.name);
-   }
-
-
-
-   /*******************************************************************************
-    ** Setter for name
-    *******************************************************************************/
-   public void setName(String name)
-   {
-      this.name = name;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for name
+    ** Fluent setter for name.
     *******************************************************************************/
    public WebhookEventType withName(String name)
    {
@@ -73,58 +66,40 @@ public class WebhookEventType implements Serializable
 
 
    /*******************************************************************************
-    ** Getter for category
+    ** Fluent setter for label.
     *******************************************************************************/
-   public WebhookEventCategory getCategory()
+   public WebhookEventType withLabel(String label)
    {
-      return (this.category);
-   }
-
-
-
-   /*******************************************************************************
-    ** Setter for category
-    *******************************************************************************/
-   public void setCategory(WebhookEventCategory category)
-   {
-      this.category = category;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for category
-    *******************************************************************************/
-   public WebhookEventType withCategory(WebhookEventCategory category)
-   {
-      this.category = category;
+      this.label = label;
       return (this);
    }
 
 
 
    /*******************************************************************************
-    ** Getter for tableName
+    ** Fluent setter for description (shown to people choosing a type).
     *******************************************************************************/
-   public String getTableName()
+   public WebhookEventType withDescription(String description)
    {
-      return (this.tableName);
+      this.description = description;
+      return (this);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for tableName
+    ** Fluent setter for kind.
     *******************************************************************************/
-   public void setTableName(String tableName)
+   public WebhookEventType withKind(WebhookEventKind kind)
    {
-      this.tableName = tableName;
+      this.kind = kind;
+      return (this);
    }
 
 
 
    /*******************************************************************************
-    ** Fluent setter for tableName
+    ** Fluent setter for tableName.
     *******************************************************************************/
    public WebhookEventType withTableName(String tableName)
    {
@@ -135,27 +110,18 @@ public class WebhookEventType implements Serializable
 
 
    /*******************************************************************************
-    ** Getter for fieldName
+    ** Fluent setter for processName.
     *******************************************************************************/
-   public String getFieldName()
+   public WebhookEventType withProcessName(String processName)
    {
-      return (this.fieldName);
+      this.processName = processName;
+      return (this);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for fieldName
-    *******************************************************************************/
-   public void setFieldName(String fieldName)
-   {
-      this.fieldName = fieldName;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for fieldName
+    ** Fluent setter for fieldName.
     *******************************************************************************/
    public WebhookEventType withFieldName(String fieldName)
    {
@@ -166,27 +132,7 @@ public class WebhookEventType implements Serializable
 
 
    /*******************************************************************************
-    ** Getter for value
-    *******************************************************************************/
-   public Serializable getValue()
-   {
-      return (this.value);
-   }
-
-
-
-   /*******************************************************************************
-    ** Setter for value
-    *******************************************************************************/
-   public void setValue(Serializable value)
-   {
-      this.value = value;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for value
+    ** Fluent setter for value.
     *******************************************************************************/
    public WebhookEventType withValue(Serializable value)
    {
@@ -197,27 +143,19 @@ public class WebhookEventType implements Serializable
 
 
    /*******************************************************************************
-    ** Getter for customizer
+    ** Fluent setter for remote (the table is in another service; events come
+    ** only from the ESB).
     *******************************************************************************/
-   public QCodeReference getCustomizer()
+   public WebhookEventType withRemote(Boolean remote)
    {
-      return (this.customizer);
+      this.remote = remote;
+      return (this);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for customizer
-    *******************************************************************************/
-   public void setCustomizer(QCodeReference customizer)
-   {
-      this.customizer = customizer;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for customizer
+    ** Fluent setter for customizer.
     *******************************************************************************/
    public WebhookEventType withCustomizer(QCodeReference customizer)
    {
@@ -226,18 +164,29 @@ public class WebhookEventType implements Serializable
    }
 
 
+
    /*******************************************************************************
-    ** Getter for label
+    ** Getter for name.
     *******************************************************************************/
-   public String getLabel()
+   public String getName()
    {
-      return (this.label);
+      return (name);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for label
+    ** Getter for label.
+    *******************************************************************************/
+   public String getLabel()
+   {
+      return (label);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for label.
     *******************************************************************************/
    public void setLabel(String label)
    {
@@ -247,13 +196,80 @@ public class WebhookEventType implements Serializable
 
 
    /*******************************************************************************
-    ** Fluent setter for label
+    ** Getter for description.
     *******************************************************************************/
-   public WebhookEventType withLabel(String label)
+   public String getDescription()
    {
-      this.label = label;
-      return (this);
+      return (description);
    }
 
 
+
+   /*******************************************************************************
+    ** Getter for kind.
+    *******************************************************************************/
+   public WebhookEventKind getKind()
+   {
+      return (kind);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for tableName.
+    *******************************************************************************/
+   public String getTableName()
+   {
+      return (tableName);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for processName.
+    *******************************************************************************/
+   public String getProcessName()
+   {
+      return (processName);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for fieldName.
+    *******************************************************************************/
+   public String getFieldName()
+   {
+      return (fieldName);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for value.
+    *******************************************************************************/
+   public Serializable getValue()
+   {
+      return (value);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for remote.
+    *******************************************************************************/
+   public Boolean getRemote()
+   {
+      return (remote);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for customizer.
+    *******************************************************************************/
+   public QCodeReference getCustomizer()
+   {
+      return (customizer);
+   }
 }
