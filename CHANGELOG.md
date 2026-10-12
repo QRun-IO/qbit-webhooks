@@ -1,58 +1,53 @@
 # Changelog
 
-All notable changes to QBit User Role Permissions will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+All notable changes to QBit Webhooks are documented in this file.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Added
-- Comprehensive README documentation following QQQ sub repo standards
-- Standard GitHub files (LICENSE, CHANGELOG, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT)
-- Proper project structure and documentation
+## [1.0.0] - not yet released
 
-### Changed
-- Updated README to follow QQQ framework standards
-- Improved project documentation and structure
-- Enhanced GitHub repository setup
-
-## [0.30.0-SNAPSHOT] - 2024-01-XX
+A rebuild of the qbit on QQQ 4.1 (design: QRun-IO/qqq#1105, docs/DESIGN.md). Breaking: see docs/migration-0.x-to-1.0.md.
 
 ### Added
-- Initial QBit implementation for user role permissions
-- Database schema for users, roles, and permissions
-- Java classes for User, Role, Permission, UserRole, and RolePermission
-- Integration with QQQ Backend Core framework
-- H2 database support for testing
-- JUnit 5 test framework integration
-- AssertJ assertions for testing
-- Checkstyle configuration for code quality
+- **Signing:**
+  - Standard Webhooks signing (`webhook-id`, `webhook-timestamp`, `webhook-signature: v1,...`, `webhook-attempt`).
+  - Per-endpoint secrets, stored encrypted (AES-256-GCM) or as environment references; rotation with an overlap; an admin-only secret value widget.
+- **SSRF-safe sending:**
+  - Private, loopback, link-local and metadata ranges are blocked.
+  - DNS is resolved once and the connection pinned; redirects are not followed.
+  - TLS 1.2+, connect, read and total timeouts, and a response size cap.
+  - An admin-only internal allowlist per endpoint.
+- **Event sources:**
+  - Delete events.
+  - Process completed and failed events.
+  - The ESB as an event source (`WebhooksEsbSource`), with own-event skipping and CloudEvent-id dedup.
+  - Custom events (`Webhooks.fire`) and a channel API for other qbits (`Webhooks.deliver`).
+- **Delivery engine:**
+  - An event id and idempotency key on every delivery.
+  - Atomic claims safe across replicas (a unique attempt row) with leases.
+  - Dead letters with Replay, and serial delivery per endpoint.
+  - Rate limits per endpoint, 429 `Retry-After` handling without blocking the runner, and auto-disable after failed probations.
+  - Retention purge.
+- **Subscriptions:**
+  - Record filters (QQQ query filter JSON), record security matching and a read-permission check on subscribe.
+  - Detail levels, include and exclude field lists.
+- **Alerts:** raised through the Alerts producer SPI when present.
+- **App:**
+  - A home dashboard (delivery volume, failures, dead letters, attention list, latency).
+  - Plain-language table and record actions with the standard review and result screens.
+- **Integrations:** ESB, Quick Search and API hooks (`WebhooksIntegrations`).
+- **Repository:** Postgres DDL in docs/ddl; JaCoCo gate; Checkstyle in `verify`; Maven wrapper; repo-standard files.
 
 ### Changed
-- Initial public release of QBit User Role Permissions
-- Established QBit development standards
-- Created modular architecture for permission management
+- Tables renamed to `webhooks_endpoint`, `webhooks_endpoint_secret`, `webhooks_subscription`, `webhooks_delivery`, `webhooks_delivery_attempt`; permissions to `webhooks.view / manage / admin`.
+- Payload envelope is now `{id, type, timestamp, source, sourceEventId, data}`.
+- One scheduled delivery process replaces the per-webhook jobs.
+- `httpTimeoutMillis` is now honoured.
+- Builds against QQQ 4.1.0-RC.4 by default.
 
----
+### Removed
+- `webhookEventContent` (the payload is a column of `webhooks_delivery`).
 
-## 📚 For Detailed Information
-
-**📖 [Complete Documentation Wiki](https://github.com/Kingsrook/qqq/wiki)** - Start here for comprehensive guides
-- **[🏠 Home](https://github.com/Kingsrook/qqq/wiki/Home)** - Project overview and quick start
-- **[🚀 Release Flow](https://github.com/Kingsrook/qqq/wiki/Release-Flow)** - Detailed release process
-- **[🏷️ Changelog & Tagging](https://github.com/Kingsrook/qqq/wiki/Changelog-and-Tagging)** - Commit conventions and release notes
-- **[🔧 Developer Onboarding](https://github.com/Kingsrook/qqq/wiki/Developer-Onboarding)** - Setup and contribution guide
-
-## 🔄 Version Compatibility
-
-QBit User Role Permissions follows semantic versioning:
-- **MAJOR** versions may contain breaking changes
-- **MINOR** versions add new functionality (backward compatible)
-- **PATCH** versions contain bug fixes (backward compatible)
-
-For detailed compatibility information, see [QQQ Compatibility Matrix](https://github.com/Kingsrook/qqq/wiki/Compatibility-Matrix).
-
----
-
-**Thank you for using QBit User Role Permissions!** 🚀
+## [0.3.0] - 2025-12-28
+- Last 0.x release (Java 21, qbit-build-parent).
