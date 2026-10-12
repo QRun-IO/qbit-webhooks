@@ -25,34 +25,29 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import com.kingsrook.qbits.webhooks.actions.WebhookEventTypeCustomizerInterface;
-import com.kingsrook.qbits.webhooks.model.WebhookEventCategory;
+import com.kingsrook.qbits.webhooks.WebhooksQBitConfig;
 import com.kingsrook.qqq.backend.core.instances.QInstanceEnricher;
 import com.kingsrook.qqq.backend.core.instances.QInstanceValidator;
-import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.QSupplementalInstanceMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
-import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
 import com.kingsrook.qqq.backend.core.utils.StringUtils;
-import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
 
 
 /*******************************************************************************
- ** class that manages webhook types (meta-data like)
+ ** The event types endpoints can subscribe to, stored on the QInstance (so two
+ ** instances in one JVM, as in tests, never share it).
  *******************************************************************************/
 public class WebhooksRegistry implements QSupplementalInstanceMetaData
 {
-   private static final QLogger LOG = QLogger.getLogger(WebhooksRegistry.class);
-
-   private static String NAME = "com.kingsrook.qbits.webhooks.registry.WebhooksRegistry";
+   public static final String NAME = "com.kingsrook.qbits.webhooks.registry.WebhooksRegistry";
 
    private final Map<String, WebhookEventType> eventTypes = new LinkedHashMap<>();
 
 
 
    /*******************************************************************************
-    ** Singleton constructor
+    ** Constructor.
     *******************************************************************************/
    private WebhooksRegistry()
    {
@@ -61,145 +56,221 @@ public class WebhooksRegistry implements QSupplementalInstanceMetaData
 
 
    /*******************************************************************************
-    **
+    ** The registry of an instance (created when missing).
     *******************************************************************************/
    public static WebhooksRegistry of(QInstance qInstance)
    {
-      return QSupplementalInstanceMetaData.of(qInstance, NAME);
+      return (QSupplementalInstanceMetaData.ofOrWithNew(qInstance, NAME, WebhooksRegistry::new));
    }
 
 
 
    /*******************************************************************************
-    **
+    ** Register the types implied by the config: table, ESB-table and process
+    ** event types.
     *******************************************************************************/
-   public static WebhooksRegistry ofOrWithNew(QInstance qInstance)
+   public void registerFromConfig(QInstance qInstance, WebhooksQBitConfig config)
    {
-      return QSupplementalInstanceMetaData.ofOrWithNew(qInstance, NAME, WebhooksRegistry::new);
+      for(String table : config.getTableEventSources())
+      {
+         registerTable(qInstance, table, false);
+      }
+      for(String table : config.getEsbTableEventSources())
+      {
+         registerTable(qInstance, table, true);
+      }
+      for(String process : config.getProcessEventSources())
+      {
+         register(new WebhookEventType().withName(processTypeName(process, WebhookEventKind.PROCESS_COMPLETED)).withKind(WebhookEventKind.PROCESS_COMPLETED)
+            .withProcessName(process).withLabel(processLabel(qInstance, process) + " completed"));
+         register(new WebhookEventType().withName(processTypeName(process, WebhookEventKind.PROCESS_FAILED)).withKind(WebhookEventKind.PROCESS_FAILED)
+            .withProcessName(process).withLabel(processLabel(qInstance, process) + " failed"));
+      }
    }
 
 
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   public void clear()
+   /*******************************************************************************
+    ** Inserted, updated and deleted types for one table.
+    *******************************************************************************/
+   private void registerTable(QInstance qInstance, String table, boolean remote)
    {
-      eventTypes.clear();
+      QTableMetaData tableMetaData = qInstance.getTable(table);
+      String         label         = tableMetaData != null && tableMetaData.getLabel() != null ? tableMetaData.getLabel() : QInstanceEnricher.nameToLabel(table);
+      for(WebhookEventKind kind : List.of(WebhookEventKind.TABLE_INSERT, WebhookEventKind.TABLE_UPDATE, WebhookEventKind.TABLE_DELETE))
+      {
+         String name = tableTypeName(table, kind);
+         if(!eventTypes.containsKey(name))
+         {
+            register(new WebhookEventType().withName(name).withKind(kind).withTableName(table).withRemote(remote).withLabel(label + " " + kind.getSuffix()));
+         }
+      }
    }
 
 
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   public WebhookEventType getWebhookEventType(String name)
+   /*******************************************************************************
+    ** {@code <table>.inserted|updated|deleted|stored}.
+    *******************************************************************************/
+   public static String tableTypeName(String table, WebhookEventKind kind)
    {
-      return (eventTypes.get(name));
+      return (table + "." + kind.getSuffix());
    }
 
 
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   public List<WebhookEventType> getAllWebhookEventTypes()
+   /*******************************************************************************
+    ** {@code process.<name>.completed|failed}.
+    *******************************************************************************/
+   public static String processTypeName(String process, WebhookEventKind kind)
+   {
+      return ("process." + process + "." + kind.getSuffix());
+   }
+
+
+
+   /*******************************************************************************
+    ** Label of a process, or its name.
+    *******************************************************************************/
+   private static String processLabel(QInstance qInstance, String process)
+   {
+      return (qInstance.getProcess(process) != null && qInstance.getProcess(process).getLabel() != null
+         ? qInstance.getProcess(process).getLabel() : QInstanceEnricher.nameToLabel(process));
+   }
+
+
+
+   /*******************************************************************************
+    ** Add (or replace) a type.
+    *******************************************************************************/
+   public WebhooksRegistry register(WebhookEventType eventType)
+   {
+      eventTypes.put(eventType.getName(), eventType);
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    ** A type by name, or null.
+    *******************************************************************************/
+   public WebhookEventType get(String name)
+   {
+      return (name == null ? null : eventTypes.get(name));
+   }
+
+
+
+   /*******************************************************************************
+    ** All types, in registration order.
+    *******************************************************************************/
+   public List<WebhookEventType> getAll()
    {
       return (new ArrayList<>(eventTypes.values()));
    }
 
 
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   public void registerWebhookEventType(WebhookEventType eventType)
+   /*******************************************************************************
+    ** The table types (of the given kinds) for a table.
+    *******************************************************************************/
+   public List<WebhookEventType> forTable(String tableName, List<WebhookEventKind> kinds)
    {
-      if(eventTypes.containsKey(eventType.getName()))
+      List<WebhookEventType> list = new ArrayList<>();
+      for(WebhookEventType type : eventTypes.values())
       {
-         LOG.info("Replacing existing webhook event type", logPair("name", eventType.getName()));
+         if(type.getKind() != null && kinds.contains(type.getKind()) && tableName.equals(type.getTableName()))
+         {
+            list.add(type);
+         }
       }
-
-      eventTypes.put(eventType.getName(), eventType);
+      return (list);
    }
 
 
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   @Override
-   public void validate(QInstance qInstance, QInstanceValidator validator)
+   /*******************************************************************************
+    ** The process types (of a kind) for a process.
+    *******************************************************************************/
+   public List<WebhookEventType> forProcess(String processName, WebhookEventKind kind)
    {
-      for(WebhookEventType eventType : CollectionUtils.nonNullList(WebhooksRegistry.ofOrWithNew(qInstance).getAllWebhookEventTypes()))
+      List<WebhookEventType> list = new ArrayList<>();
+      for(WebhookEventType type : eventTypes.values())
       {
-         String prefix = "Webhook Event Type: " + eventType.getName() + " ";
-
-         validator.assertCondition(StringUtils.hasContent(eventType.getName()), prefix + "is missing a name'");
-
-         WebhookEventCategory category = eventType.getCategory();
-         if(validator.assertCondition(category != null, prefix + "is missing a category"))
+         if(kind.equals(type.getKind()) && processName.equals(type.getProcessName()))
          {
-            if(category.getRequiresTable())
-            {
-               validator.assertCondition(StringUtils.hasContent(eventType.getTableName()), prefix + "requires a tableName, but does not have one");
-            }
-
-            if(category.getRequiresField())
-            {
-               validator.assertCondition(StringUtils.hasContent(eventType.getFieldName()), prefix + "requires a fieldName, but does not have one");
-            }
-
-            if(category.getRequiresValue())
-            {
-               validator.assertCondition(eventType.getValue() != null, prefix + "requires a value, but does not have one");
-            }
-         }
-
-         if(StringUtils.hasContent(eventType.getTableName()))
-         {
-            QTableMetaData table = qInstance.getTable(eventType.getTableName());
-            validator.assertCondition(table != null, prefix + "references a non-existing tableName: " + eventType.getTableName());
-
-            if(table != null && StringUtils.hasContent(eventType.getFieldName()))
-            {
-               validator.assertCondition(table.getFields().containsKey(eventType.getFieldName()), prefix + "references a non-existing fieldName: " + eventType.getFieldName() + " for table " + eventType.getTableName());
-            }
-         }
-
-         if(eventType.getCustomizer() != null)
-         {
-            validator.validateSimpleCodeReference(prefix + "customizer codeReference: ", eventType.getCustomizer(), WebhookEventTypeCustomizerInterface.class);
+            list.add(type);
          }
       }
+      return (list);
    }
 
 
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
+   /*******************************************************************************
+    ** Fill in labels.
+    *******************************************************************************/
    @Override
    public void enrich(QInstance qInstance)
    {
-      for(WebhookEventType webhookEventType : CollectionUtils.nonNullList(WebhooksRegistry.ofOrWithNew(qInstance).getAllWebhookEventTypes()))
+      for(WebhookEventType type : eventTypes.values())
       {
-         if(!StringUtils.hasContent(webhookEventType.getLabel()))
+         if(!StringUtils.hasContent(type.getLabel()))
          {
-            webhookEventType.setLabel(QInstanceEnricher.nameToLabel(webhookEventType.getName()));
+            type.setLabel(QInstanceEnricher.nameToLabel(type.getName()));
          }
       }
    }
 
 
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
+   /*******************************************************************************
+    ** Validate every type.
+    *******************************************************************************/
+   @Override
+   public void validate(QInstance qInstance, QInstanceValidator validator)
+   {
+      for(WebhookEventType type : eventTypes.values())
+      {
+         String prefix = "Webhook event type " + type.getName() + ": ";
+         validator.assertCondition(StringUtils.hasContent(type.getName()) && type.getName().matches("[A-Za-z0-9_.:-]+"),
+            prefix + "needs a name of letters, digits and . _ : -");
+         if(!validator.assertCondition(type.getKind() != null, prefix + "needs a kind"))
+         {
+            continue;
+         }
+         if(type.getKind().isTable())
+         {
+            validator.assertCondition(StringUtils.hasContent(type.getTableName()), prefix + "a table type needs a tableName");
+            if(StringUtils.hasContent(type.getTableName()) && !Boolean.TRUE.equals(type.getRemote()))
+            {
+               QTableMetaData table = qInstance.getTable(type.getTableName());
+               if(validator.assertCondition(table != null, prefix + "unknown table " + type.getTableName() + " (mark remote types withRemote(true))")
+                  && StringUtils.hasContent(type.getFieldName()))
+               {
+                  validator.assertCondition(table.getFields().containsKey(type.getFieldName()), prefix + "unknown field " + type.getFieldName());
+               }
+            }
+         }
+         if(type.getKind().isProcess())
+         {
+            validator.assertCondition(StringUtils.hasContent(type.getProcessName()), prefix + "a process type needs a processName");
+         }
+         if(type.getCustomizer() != null)
+         {
+            validator.validateSimpleCodeReference(prefix + "customizer: ", type.getCustomizer(), WebhookPayloadCustomizerInterface.class);
+         }
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** Supplemental metadata name.
+    *******************************************************************************/
    @Override
    public String getName()
    {
-      return NAME;
+      return (NAME);
    }
-
 }

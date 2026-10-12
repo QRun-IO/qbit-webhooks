@@ -28,8 +28,6 @@ import com.kingsrook.qqq.backend.core.actions.values.QCustomPossibleValueProvide
 import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.model.actions.values.SearchPossibleValueSourceInput;
-import com.kingsrook.qqq.backend.core.model.metadata.MetaDataProducerInterface;
-import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
 import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleValue;
@@ -38,69 +36,64 @@ import com.kingsrook.qqq.backend.core.utils.ValueUtils;
 
 
 /*******************************************************************************
- ** PVS for webhook event types - custom PVS implementation, that uses Webhook
- ** Registry as backend.
+ ** The registered event types as a possible-value source (the "Event Type"
+ ** picker on subscriptions and deliveries). Labels read
+ ** {@code <label> (<name>)}, so people see both.
  *******************************************************************************/
-public class WebhookEventTypePossibleValueSource implements QCustomPossibleValueProvider<String>, MetaDataProducerInterface<QPossibleValueSource>
+public class WebhookEventTypePossibleValueSource implements QCustomPossibleValueProvider<String>
 {
-   public static final String NAME = "WebhookEventType";
+   public static final String NAME = "webhooks_event_type";
 
 
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   @Override
-   public QPossibleValueSource produce(QInstance qInstance) throws QException
+   /*******************************************************************************
+    ** The source definition.
+    *******************************************************************************/
+   public static QPossibleValueSource definition()
    {
-      return new QPossibleValueSource()
+      return (new QPossibleValueSource()
          .withName(NAME)
+         .withLabel("Webhook Event Type")
          .withIdType(QFieldType.STRING)
-         .withCustomCodeReference(new QCodeReference(getClass()));
+         .withCustomCodeReference(new QCodeReference(WebhookEventTypePossibleValueSource.class)));
    }
 
 
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
+   /*******************************************************************************
+    ** One value by id.
+    *******************************************************************************/
    @Override
    public QPossibleValue<String> getPossibleValue(Serializable id)
    {
-      WebhookEventType webhookEventType = WebhooksRegistry.ofOrWithNew(QContext.getQInstance()).getWebhookEventType(ValueUtils.getValueAsString(id));
-      if(webhookEventType == null)
-      {
-         return (null);
-      }
-
-      return getPossibleValue(webhookEventType);
+      WebhookEventType type = WebhooksRegistry.of(QContext.getQInstance()).get(ValueUtils.getValueAsString(id));
+      return (type == null ? null : toValue(type));
    }
 
 
 
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private static QPossibleValue<String> getPossibleValue(WebhookEventType webhookEventType)
-   {
-      return new QPossibleValue<>(webhookEventType.getName(), webhookEventType.getLabel());
-   }
-
-
-
-   /***************************************************************************
-    **
-    ***************************************************************************/
+   /*******************************************************************************
+    ** Search.
+    *******************************************************************************/
    @Override
    public List<QPossibleValue<String>> search(SearchPossibleValueSourceInput input) throws QException
    {
-      List<QPossibleValue<String>> allPossibleValues = new ArrayList<>();
-      for(WebhookEventType webhookEventType : WebhooksRegistry.ofOrWithNew(QContext.getQInstance()).getAllWebhookEventTypes())
+      List<QPossibleValue<String>> values = new ArrayList<>();
+      for(WebhookEventType type : WebhooksRegistry.of(QContext.getQInstance()).getAll())
       {
-         allPossibleValues.add(getPossibleValue(webhookEventType));
+         values.add(toValue(type));
       }
-
-      return completeCustomPVSSearch(input, allPossibleValues);
+      return (completeCustomPVSSearch(input, values));
    }
 
+
+
+   /*******************************************************************************
+    ** Value for a type.
+    *******************************************************************************/
+   private static QPossibleValue<String> toValue(WebhookEventType type)
+   {
+      String label = type.getLabel() == null ? type.getName() : type.getLabel() + " (" + type.getName() + ")";
+      return (new QPossibleValue<>(type.getName(), label));
+   }
 }
