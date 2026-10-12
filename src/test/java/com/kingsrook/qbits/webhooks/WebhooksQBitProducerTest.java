@@ -65,6 +65,13 @@ class WebhooksQBitProducerTest
          assertThat(table.getPermissionRules().getPermissionBaseName()).isEqualTo("webhooks");
       }
       assertThat(instance.getTable(WebhooksTables.DELIVERY).getField("nextAttemptDate").getBackendName()).isEqualTo("next_attempt_date");
+      for(String systemWritten : WebhooksTables.SYSTEM_WRITTEN)
+      {
+         assertThat(instance.getTable(systemWritten).getDisabledCapabilities()).contains(
+            com.kingsrook.qqq.backend.core.model.metadata.tables.Capability.TABLE_INSERT,
+            com.kingsrook.qqq.backend.core.model.metadata.tables.Capability.TABLE_UPDATE,
+            com.kingsrook.qqq.backend.core.model.metadata.tables.Capability.TABLE_DELETE);
+      }
    }
 
 

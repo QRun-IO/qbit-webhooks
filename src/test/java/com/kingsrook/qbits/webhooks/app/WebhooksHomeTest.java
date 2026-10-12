@@ -125,12 +125,12 @@ class WebhooksHomeTest
       assertThat(data.getP50Millis()).isNotNull();
 
       String html = home();
-      assertThat(html).contains("Delivered (24 h)").contains("wh-bars").contains("bad &lt;b&gt;").doesNotContain("bad <b>")
+      assertThat(html).contains("Delivered (24 h)").contains("attempts in the last 24 hours, by hour").contains("bad &lt;b&gt;").doesNotContain("bad <b>")
          .contains("/admin/webhooks/webhooks_delivery/" + deadOne.getValue("id")).contains("Replay");
       ////////////////////////////////////////////////////////////////
       // readability rules: no fixed widths that force a scroll bar   //
       ////////////////////////////////////////////////////////////////
-      assertThat(html).doesNotContain("overflow-x").doesNotContain("overflow:auto").contains("@media (max-width:640px)");
+      assertThat(html).doesNotContain("overflow-x").doesNotContain("overflow:auto").doesNotContain("<style").contains("minmax(min(100%");
    }
 
 

@@ -77,7 +77,7 @@ public final class WebhooksApp
    public static List<QWidgetMetaData> widgets()
    {
       return (List.of(
-         new QWidgetMetaData().withName(HOME_WIDGET).withLabel("Webhooks").withType(WidgetType.HTML.getType())
+         new QWidgetMetaData().withName(HOME_WIDGET).withLabel("Overview").withType(WidgetType.HTML.getType())
             .withCodeReference(new QCodeReference(HomeRenderer.class)).withGridColumns(12).withIsCard(false)
             .withPermissionRules(WebhooksTables.permissionRules()),
          new QWidgetMetaData().withName(SECRET_VALUE_WIDGET).withLabel("Secret Value").withType(WidgetType.HTML.getType())

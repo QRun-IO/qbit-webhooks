@@ -21,10 +21,12 @@
 package com.kingsrook.qbits.webhooks.app;
 
 
+import java.io.Serializable;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksTables;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.utils.ValueUtils;
@@ -33,51 +35,38 @@ import com.kingsrook.qqq.backend.core.utils.ValueUtils;
 /*******************************************************************************
  ** Renders the Webhooks home as HTML for an HTML widget.
  **
- ** <p>Layout rules (owner, 2026-10-11): one page scroll (nothing scrolls
- ** inside the widget), no horizontal scroll at any width, tables full width
- ** that become stacked cards on narrow screens, dates compact on one line,
- ** and plain labels. Colours come from the current text colour with opacity,
- ** plus green and red that read on light and dark backgrounds.</p>
+ ** <p>Next UI's sanitizer removes {@code <style>} elements, so everything is
+ ** inline styles. Layout rules (owner, 2026-10-11):</p>
+ ** <ul>
+ **   <li>one page scroll: nothing scrolls inside the widget;</li>
+ **   <li>no horizontal scroll at any width;</li>
+ **   <li>list rows are cards whose labelled cells wrap by themselves
+ **       ({@code auto-fit} grids with {@code min(100%, ...)}), so they read
+ **       at 360 px and at 3200 px without media queries;</li>
+ **   <li>dates compact and on one line, plain labels;</li>
+ **   <li>colours from the current text colour with opacity, plus a green and
+ **       a red that read on light and dark backgrounds.</li>
+ ** </ul>
  *******************************************************************************/
 public final class WebhooksHomeView
 {
-   private static final DateTimeFormatter WHEN = DateTimeFormatter.ofPattern("MMM d, HH:mm 'UTC'").withZone(ZoneOffset.UTC);
+   private static final DateTimeFormatter WHEN = DateTimeFormatter.ofPattern("MMM d, HH:mm 'UTC'", Locale.ENGLISH).withZone(ZoneOffset.UTC);
 
    private static final String OK_COLOR   = "#2e9e5b";
    private static final String FAIL_COLOR = "#d64545";
 
-   private static final String STYLE = """
-      <style>
-      .wh-home{display:flex;flex-direction:column;gap:1rem;min-width:0;font-size:.95rem;line-height:1.4}
-      .wh-home *{box-sizing:border-box}
-      .wh-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10.5rem),1fr));gap:.75rem}
-      .wh-kpi{border:1px solid rgba(127,127,127,.3);border-radius:8px;padding:.75rem 1rem;min-width:0}
-      .wh-kpi .v{font-size:1.6rem;font-weight:600;line-height:1.2}
-      .wh-kpi .l{opacity:.75;font-size:.85rem}
-      .wh-kpi.bad .v{color:%FAIL%}
-      .wh-card{border:1px solid rgba(127,127,127,.3);border-radius:8px;padding:1rem;min-width:0}
-      .wh-card h3{margin:0 0 .75rem;font-size:1rem;font-weight:600}
-      .wh-muted{opacity:.75}
-      .wh-bars{display:flex;align-items:flex-end;gap:2px;height:7rem;width:100%}
-      .wh-bar{flex:1 1 0;min-width:0;display:flex;flex-direction:column-reverse;height:100%}
-      .wh-bar .ok{background:%OK%;opacity:.85}
-      .wh-bar .no{background:%FAIL%;opacity:.9}
-      .wh-axis{display:flex;justify-content:space-between;font-size:.75rem;opacity:.7;margin-top:.25rem}
-      .wh-legend{display:flex;gap:1rem;flex-wrap:wrap;font-size:.8rem;margin-top:.5rem}
-      .wh-legend i{display:inline-block;width:.7rem;height:.7rem;border-radius:2px;margin-right:.3rem;vertical-align:-1px}
-      .wh-table{width:100%;border-collapse:collapse}
-      .wh-table th{text-align:left;font-weight:600;font-size:.8rem;opacity:.75;padding:.35rem .5rem;border-bottom:1px solid rgba(127,127,127,.3)}
-      .wh-table td{padding:.45rem .5rem;border-bottom:1px solid rgba(127,127,127,.15);vertical-align:top;overflow-wrap:anywhere}
-      .wh-table td.nw{white-space:nowrap}
-      @media (max-width:640px){
-        .wh-table thead{display:none}
-        .wh-table tr{display:block;border:1px solid rgba(127,127,127,.25);border-radius:6px;margin-bottom:.5rem;padding:.25rem .5rem}
-        .wh-table td{display:flex;gap:.5rem;border:0;padding:.2rem 0}
-        .wh-table td::before{content:attr(data-label);font-weight:600;opacity:.7;min-width:6.5rem;flex:0 0 auto}
-        .wh-table td.nw{white-space:normal}
-      }
-      </style>
-      """.replace("%OK%", OK_COLOR).replace("%FAIL%", FAIL_COLOR);
+   private static final String HOME  = "display:flex;flex-direction:column;gap:1rem;min-width:0;font-size:.95rem;line-height:1.4;";
+   private static final String KPIS  = "display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9.5rem),1fr));gap:.75rem;";
+   private static final String KPI   = "border:1px solid rgba(127,127,127,.3);border-radius:8px;padding:.75rem 1rem;min-width:0;";
+   private static final String VALUE = "font-size:1.6rem;font-weight:600;line-height:1.2;overflow-wrap:anywhere;";
+   private static final String LABEL = "opacity:.75;font-size:.85rem;";
+   private static final String CARD  = "border:1px solid rgba(127,127,127,.3);border-radius:8px;padding:1rem;min-width:0;";
+   private static final String TITLE = "margin:0 0 .75rem;font-size:1rem;font-weight:600;";
+   private static final String MUTED = "opacity:.75;margin:0;";
+   private static final String ROW   = "display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));gap:.25rem 1rem;padding:.6rem 0;"
+      + "border-top:1px solid rgba(127,127,127,.2);align-items:start;";
+   private static final String CELL  = "min-width:0;overflow-wrap:anywhere;";
+   private static final String CAP   = "display:block;font-size:.75rem;font-weight:600;opacity:.65;";
 
 
 
@@ -95,7 +84,7 @@ public final class WebhooksHomeView
     *******************************************************************************/
    public static String render(WebhooksHomeData data, String tablePrefix)
    {
-      StringBuilder html = new StringBuilder(STYLE).append("<div class=\"wh-home\">");
+      StringBuilder html = new StringBuilder("<div style=\"" + HOME + "\">");
       kpis(html, data, tablePrefix);
       volume(html, data);
       attention(html, data, tablePrefix);
@@ -106,11 +95,11 @@ public final class WebhooksHomeView
 
 
    /*******************************************************************************
-    ** The KPI row.
+    ** The KPI tiles.
     *******************************************************************************/
    private static void kpis(StringBuilder html, WebhooksHomeData data, String prefix)
    {
-      html.append("<div class=\"wh-kpis\">");
+      html.append("<div style=\"").append(KPIS).append("\">");
       kpi(html, String.valueOf(data.getDelivered24h()), "Delivered (24 h)", false, prefix + "/" + WebhooksTables.DELIVERY);
       kpi(html, String.valueOf(data.getFailedAttempts24h()), "Failed attempts (24 h)", data.getFailedAttempts24h() > 0, prefix + "/" + WebhooksTables.DELIVERY);
       kpi(html, String.valueOf(data.getDeadLetters()), "Dead letters", data.getDeadLetters() > 0, prefix + "/" + WebhooksTables.DELIVERY);
@@ -127,7 +116,8 @@ public final class WebhooksHomeView
     *******************************************************************************/
    private static void kpi(StringBuilder html, String value, String label, boolean bad, String href)
    {
-      html.append("<div class=\"wh-kpi").append(bad ? " bad" : "").append("\"><div class=\"v\">");
+      String valueStyle = VALUE + (bad ? "color:" + FAIL_COLOR + ";" : "");
+      html.append("<div style=\"").append(KPI).append("\"><div style=\"").append(valueStyle).append("\">");
       if(href != null)
       {
          html.append("<a href=\"").append(esc(href)).append("\" style=\"color:inherit;text-decoration:none\">").append(esc(value)).append("</a>");
@@ -136,7 +126,7 @@ public final class WebhooksHomeView
       {
          html.append(esc(value));
       }
-      html.append("</div><div class=\"l\">").append(esc(label)).append("</div></div>");
+      html.append("</div><div style=\"").append(LABEL).append("\">").append(esc(label)).append("</div></div>");
    }
 
 
@@ -155,58 +145,69 @@ public final class WebhooksHomeView
          max = Math.max(max, ok[i] + failed[i]);
          total += ok[i] + failed[i];
       }
-      html.append("<div class=\"wh-card\"><h3>Delivery attempts, last 24 hours</h3>");
+      html.append("<div style=\"").append(CARD).append("\"><h3 style=\"").append(TITLE).append("\">Delivery attempts, last 24 hours</h3>");
       if(total == 0)
       {
-         html.append("<p class=\"wh-muted\">No delivery attempts in the last 24 hours.</p></div>");
+         html.append("<p style=\"").append(MUTED).append("\">No delivery attempts in the last 24 hours.</p></div>");
          return;
       }
-      html.append("<div class=\"wh-bars\" role=\"img\" aria-label=\"").append(total).append(" attempts in the last 24 hours, by hour\">");
+      html.append("<div role=\"img\" aria-label=\"").append(total).append(" attempts in the last 24 hours, by hour\" style=\"display:flex;align-items:flex-end;gap:2px;height:7rem;width:100%\">");
       for(int i = 0; i < 24; i++)
       {
-         double okPct   = 100.0 * ok[i] / max;
-         double failPct = 100.0 * failed[i] / max;
-         html.append("<div class=\"wh-bar\" title=\"").append(ok[i]).append(" succeeded, ").append(failed[i]).append(" failed\">")
-            .append("<div class=\"ok\" style=\"height:").append(String.format(java.util.Locale.ROOT, "%.1f", okPct)).append("%\"></div>")
-            .append("<div class=\"no\" style=\"height:").append(String.format(java.util.Locale.ROOT, "%.1f", failPct)).append("%\"></div></div>");
+         html.append("<div title=\"").append(ok[i]).append(" succeeded, ").append(failed[i]).append(" failed\" style=\"flex:1 1 0;min-width:0;height:100%;display:flex;flex-direction:column-reverse\">")
+            .append("<div style=\"background:").append(OK_COLOR).append(";height:").append(pct(ok[i], max)).append("%\"></div>")
+            .append("<div style=\"background:").append(FAIL_COLOR).append(";height:").append(pct(failed[i], max)).append("%\"></div></div>");
       }
-      html.append("</div><div class=\"wh-axis\"><span>24 h ago</span><span>now</span></div>")
-         .append("<div class=\"wh-legend\"><span><i style=\"background:").append(OK_COLOR).append("\"></i>Succeeded</span>")
-         .append("<span><i style=\"background:").append(FAIL_COLOR).append("\"></i>Failed</span>")
-         .append("<span class=\"wh-muted\">Peak ").append(max).append(" per hour; ").append(data.getRateLimited24h()).append(" rate-limited</span></div></div>");
+      html.append("</div><div style=\"display:flex;justify-content:space-between;font-size:.75rem;opacity:.7;margin-top:.25rem\"><span>24 h ago</span><span>Now</span></div>")
+         .append("<div style=\"display:flex;gap:1rem;flex-wrap:wrap;font-size:.8rem;margin-top:.5rem\">")
+         .append(legend(OK_COLOR, "Succeeded")).append(legend(FAIL_COLOR, "Failed"))
+         .append("<span style=\"opacity:.75\">Peak ").append(max).append(" per hour; ").append(data.getRateLimited24h()).append(" rate-limited</span></div></div>");
    }
 
 
 
    /*******************************************************************************
-    ** Endpoints needing attention (full width table, cards when narrow).
+    ** A legend entry.
+    *******************************************************************************/
+   private static String legend(String color, String label)
+   {
+      return ("<span><span style=\"display:inline-block;width:.7rem;height:.7rem;border-radius:2px;margin-right:.3rem;vertical-align:-1px;background:" + color + "\"></span>"
+         + esc(label) + "</span>");
+   }
+
+
+
+   /*******************************************************************************
+    ** Endpoints needing attention, one card row each.
     *******************************************************************************/
    private static void attention(StringBuilder html, WebhooksHomeData data, String prefix)
    {
-      html.append("<div class=\"wh-card\"><h3>Endpoints needing attention</h3>");
+      html.append("<div style=\"").append(CARD).append("\"><h3 style=\"").append(TITLE).append("\">Endpoints needing attention</h3>");
       if(data.getEndpointCount() == 0)
       {
-         html.append("<p class=\"wh-muted\">No endpoints yet. <a href=\"").append(esc(prefix + "/" + WebhooksTables.ENDPOINT)).append("\">Add an endpoint</a>, then subscribe it to events.</p></div>");
+         html.append("<p style=\"").append(MUTED).append("\">No endpoints yet. <a href=\"").append(esc(prefix + "/" + WebhooksTables.ENDPOINT))
+            .append("\">Add an endpoint</a>, then subscribe it to events.</p></div>");
          return;
       }
       if(data.getAttention().isEmpty())
       {
-         html.append("<p class=\"wh-muted\">All ").append(data.getEndpointCount()).append(" endpoints are healthy.</p></div>");
+         html.append("<p style=\"").append(MUTED).append("\">All ").append(data.getEndpointCount()).append(" endpoints are healthy.</p></div>");
          return;
       }
-      html.append("<table class=\"wh-table\"><thead><tr><th>Endpoint</th><th>Why</th><th>Last failure</th><th>Last success</th></tr></thead><tbody>");
       List<QRecord> rows = data.getAttention();
       for(int i = 0; i < rows.size(); i++)
       {
          QRecord endpoint = rows.get(i);
-         html.append("<tr><td data-label=\"Endpoint\"><a href=\"").append(esc(prefix + "/" + WebhooksTables.ENDPOINT + "/" + endpoint.getValue("id"))).append("\">")
-            .append(esc(endpoint.getValueString("name"))).append("</a></td>")
-            .append("<td data-label=\"Why\">").append(esc(data.getAttentionWhy().get(i)))
-            .append(endpoint.getValueString("lastFailureMessage") == null ? "" : "<br><span class=\"wh-muted\">" + esc(clamp(endpoint.getValueString("lastFailureMessage"), 140)) + "</span>")
-            .append("</td><td data-label=\"Last failure\" class=\"nw\">").append(when(endpoint.getValue("lastFailureDate")))
-            .append("</td><td data-label=\"Last success\" class=\"nw\">").append(when(endpoint.getValue("lastSuccessDate"))).append("</td></tr>");
+         String  message  = endpoint.getValueString("lastFailureMessage");
+         html.append("<div style=\"").append(ROW).append("\">")
+            .append(cell("Endpoint", "<a href=\"" + esc(prefix + "/" + WebhooksTables.ENDPOINT + "/" + endpoint.getValue("id")) + "\">"
+               + esc(endpoint.getValueString("name")) + "</a>"))
+            .append(cell("Why", esc(data.getAttentionWhy().get(i)) + (message == null ? "" : "<br><span style=\"opacity:.75\">" + esc(clamp(message, 140)) + "</span>")))
+            .append(cell("Last failure", when(endpoint.getValue("lastFailureDate"))))
+            .append(cell("Last success", when(endpoint.getValue("lastSuccessDate"))))
+            .append("</div>");
       }
-      html.append("</tbody></table></div>");
+      html.append("</div>");
    }
 
 
@@ -216,33 +217,54 @@ public final class WebhooksHomeView
     *******************************************************************************/
    private static void deadLetters(StringBuilder html, WebhooksHomeData data, String prefix)
    {
-      html.append("<div class=\"wh-card\"><h3>Newest dead letters</h3>");
+      html.append("<div style=\"").append(CARD).append("\"><h3 style=\"").append(TITLE).append("\">Newest dead letters</h3>");
       if(data.getRecentDeadLetters().isEmpty())
       {
-         html.append("<p class=\"wh-muted\">No dead letters.</p></div>");
+         html.append("<p style=\"").append(MUTED).append("\">No dead letters.</p></div>");
          return;
       }
-      html.append("<table class=\"wh-table\"><thead><tr><th>Delivery</th><th>Event type</th><th>Last error</th><th>Dead-lettered</th></tr></thead><tbody>");
       for(QRecord delivery : data.getRecentDeadLetters())
       {
-         html.append("<tr><td data-label=\"Delivery\"><a href=\"").append(esc(prefix + "/" + WebhooksTables.DELIVERY + "/" + delivery.getValue("id"))).append("\">#")
-            .append(esc(String.valueOf(delivery.getValue("id")))).append("</a></td>")
-            .append("<td data-label=\"Event type\">").append(esc(delivery.getValueString("eventTypeName"))).append("</td>")
-            .append("<td data-label=\"Last error\">").append(esc(clamp(delivery.getValueString("lastError"), 140))).append("</td>")
-            .append("<td data-label=\"Dead-lettered\" class=\"nw\">").append(when(delivery.getValue("deadLetterDate"))).append("</td></tr>");
+         html.append("<div style=\"").append(ROW).append("\">")
+            .append(cell("Delivery", "<a href=\"" + esc(prefix + "/" + WebhooksTables.DELIVERY + "/" + delivery.getValue("id")) + "\">#"
+               + esc(String.valueOf(delivery.getValue("id"))) + "</a>"))
+            .append(cell("Event type", esc(delivery.getValueString("eventTypeName"))))
+            .append(cell("Last error", esc(clamp(delivery.getValueString("lastError"), 140))))
+            .append(cell("Dead-lettered", when(delivery.getValue("deadLetterDate"))))
+            .append("</div>");
       }
-      html.append("</tbody></table><p class=\"wh-muted\">Select dead letters in Deliveries and run Replay to send them again.</p></div>");
+      html.append("<p style=\"").append(MUTED).append("margin-top:.5rem\">Select dead letters in Deliveries and run Replay to send them again.</p></div>");
    }
 
 
 
    /*******************************************************************************
-    ** A compact date, or a dash.
+    ** A labelled cell.
+    *******************************************************************************/
+   private static String cell(String label, String valueHtml)
+   {
+      return ("<div style=\"" + CELL + "\"><span style=\"" + CAP + "\">" + esc(label) + "</span>" + valueHtml + "</div>");
+   }
+
+
+
+   /*******************************************************************************
+    ** Percent of max, one decimal.
+    *******************************************************************************/
+   private static String pct(int value, int max)
+   {
+      return (String.format(Locale.ROOT, "%.1f", max == 0 ? 0.0 : 100.0 * value / max));
+   }
+
+
+
+   /*******************************************************************************
+    ** A compact date (never wrapped), or a dash.
     *******************************************************************************/
    private static String when(Object value)
    {
-      Instant instant = value == null ? null : ValueUtils.getValueAsInstant((java.io.Serializable) value);
-      return (instant == null ? "-" : esc(WHEN.format(instant)));
+      Instant instant = value == null ? null : ValueUtils.getValueAsInstant((Serializable) value);
+      return (instant == null ? "-" : "<span style=\"white-space:nowrap\">" + esc(WHEN.format(instant)) + "</span>");
    }
 
 

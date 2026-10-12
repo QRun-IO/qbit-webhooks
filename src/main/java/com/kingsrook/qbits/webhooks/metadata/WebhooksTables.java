@@ -46,6 +46,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.layout.QIcon;
 import com.kingsrook.qqq.backend.core.model.metadata.permissions.PermissionLevel;
 import com.kingsrook.qqq.backend.core.model.metadata.permissions.QPermissionRules;
 import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleValueSource;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.Capability;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.ExposedJoin;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QFieldSection;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
@@ -160,7 +161,19 @@ public final class WebhooksTables
     *******************************************************************************/
    public static List<QTableMetaData> tables(WebhooksQBitConfig config)
    {
-      return (List.of(endpoint(config), secret(config), subscription(config), delivery(config), attempt(config)));
+      List<QTableMetaData> tables = List.of(endpoint(config), secret(config), subscription(config), delivery(config), attempt(config));
+      for(QTableMetaData table : tables)
+      {
+         if(SYSTEM_WRITTEN.contains(table.getName()))
+         {
+            //////////////////////////////////////////////////////////////////
+            // no New / Edit / Delete in the UI or API: people act on these  //
+            // through the actions; the qbit writes them itself              //
+            //////////////////////////////////////////////////////////////////
+            table.withoutCapabilities(Capability.TABLE_INSERT, Capability.TABLE_UPDATE, Capability.TABLE_DELETE);
+         }
+      }
+      return (tables);
    }
 
 
@@ -189,27 +202,27 @@ public final class WebhooksTables
       widgets.add(ChildRecordListRenderer.widgetMetaDataBuilder(joinFor(JOIN_ENDPOINT_SUBSCRIPTION))
          .withName(WIDGET_ENDPOINT_SUBSCRIPTIONS).withLabel("Subscriptions").withCanAddChildRecord(true).withMaxRows(100)
          .withDisabledFieldsForNewChildRecords(Set.of("endpointId"))
-         .getWidgetMetaData().withPermissionRules(permissionRules()));
+         .getWidgetMetaData().withGridColumns(12).withPermissionRules(permissionRules()));
       widgets.add(ChildRecordListRenderer.widgetMetaDataBuilder(joinFor(JOIN_ENDPOINT_SECRET))
          .withName(WIDGET_ENDPOINT_SECRETS).withLabel("Signing Secrets").withMaxRows(20)
          .withOmitFieldNames(List.of("encryptedSecret", "endpointId"))
          .withOrderBys(List.of(new QFilterOrderBy("id", false)))
-         .getWidgetMetaData().withPermissionRules(permissionRules()));
+         .getWidgetMetaData().withGridColumns(12).withPermissionRules(permissionRules()));
       widgets.add(ChildRecordListRenderer.widgetMetaDataBuilder(joinFor(JOIN_ENDPOINT_DELIVERY))
          .withName(WIDGET_ENDPOINT_DELIVERIES).withLabel("Recent Deliveries").withMaxRows(25)
          .withOnlyIncludeFieldNames(List.of("id", "eventTypeName", "status", "attemptCount", "lastHttpStatus", "occurredDate", "deliveredDate"))
          .withOrderBys(List.of(new QFilterOrderBy("id", false)))
-         .getWidgetMetaData().withPermissionRules(permissionRules()));
+         .getWidgetMetaData().withGridColumns(12).withPermissionRules(permissionRules()));
       widgets.add(ChildRecordListRenderer.widgetMetaDataBuilder(joinFor(JOIN_SUBSCRIPTION_DELIVERY))
          .withName(WIDGET_SUBSCRIPTION_DELIVERIES).withLabel("Recent Deliveries").withMaxRows(25)
          .withOnlyIncludeFieldNames(List.of("id", "status", "attemptCount", "lastHttpStatus", "occurredDate", "deliveredDate"))
          .withOrderBys(List.of(new QFilterOrderBy("id", false)))
-         .getWidgetMetaData().withPermissionRules(permissionRules()));
+         .getWidgetMetaData().withGridColumns(12).withPermissionRules(permissionRules()));
       widgets.add(ChildRecordListRenderer.widgetMetaDataBuilder(joinFor(JOIN_DELIVERY_ATTEMPT))
          .withName(WIDGET_DELIVERY_ATTEMPTS).withLabel("Attempts").withMaxRows(50)
          .withOnlyIncludeFieldNames(List.of("attemptNumber", "outcome", "httpStatus", "durationMillis", "startDate", "errorMessage"))
          .withOrderBys(List.of(new QFilterOrderBy("attemptNumber", true)))
-         .getWidgetMetaData().withPermissionRules(permissionRules()));
+         .getWidgetMetaData().withGridColumns(12).withPermissionRules(permissionRules()));
       return (widgets);
    }
 
@@ -459,7 +472,7 @@ public final class WebhooksTables
          .withSection(SectionFactory.customT2("source", new QIcon("input"), "eventId", "source", "sourceTable", "sourceRecordId", "sourceEventId",
             "subscriptionId", "dedupKey", "leaseExpiresDate", "payloadBytes"))
          .withSection(SectionFactory.customT2("attempts", new QIcon("history")).withWidgetName(WIDGET_DELIVERY_ATTEMPTS))
-         .withSection(SectionFactory.customT2("payloadSection", new QIcon("data_object"), "payload").withLabel("Payload"))
+         .withSection(SectionFactory.customT2("payloadSection", new QIcon("data_object"), "payload").withLabel("Payload").withGridColumns(12))
          .withSection(SectionFactory.defaultT3("createDate", "modifyDate"))
          .withExposedJoin(new ExposedJoin().withLabel("Endpoint").withJoinTable(ENDPOINT).withJoinPath(List.of(JOIN_ENDPOINT_DELIVERY)));
       return (table);
