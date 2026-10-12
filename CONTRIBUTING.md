@@ -1,4 +1,6 @@
-# Contributing to QBit User Role Permissions
+# Contributing to QBit Webhooks
 
-* See Project [Contributing](https://github.com/Kingsrook/qqq/blob/develop/CONTRIBUTING.md)
-
+* See Project [Contributing](https://github.com/QRun-IO/qqq/blob/develop/CONTRIBUTING.md)
+* Branches follow GitFlow: `feature/*` from `develop`, pull requests to `develop`, `release/*` for release candidates, `vX.Y.Z` tags for releases.
+* Commits are signed and follow Conventional Commits.
+* Build and test locally with `./mvnw verify` (Java 21).
