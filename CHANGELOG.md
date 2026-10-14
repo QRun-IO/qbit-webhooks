@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Changed
+- Require QQQ 4.1.0-RC.5 and use its webhook signer, verifier, secret and verification exception (QRun-IO/qqq#1160, F11). Removed the internal signing package; Java consumers must import `com.kingsrook.qqq.backend.core.utils.webhooks` instead.
+- Signing wire format, timestamp tolerance, rotation, endpoint management, encrypted secret storage and delivery behavior are unchanged.
+
 ## [1.0.0] - not yet released
 
 A rebuild of the qbit on QQQ 4.1 (design: QRun-IO/qqq#1105, docs/DESIGN.md). Breaking: see docs/migration-0.x-to-1.0.md.

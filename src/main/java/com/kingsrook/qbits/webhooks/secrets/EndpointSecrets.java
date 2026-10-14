@@ -30,7 +30,6 @@ import com.kingsrook.qbits.webhooks.WebhooksRuntime;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksEnums.SecretSource;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksEnums.SecretStatus;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksTables;
-import com.kingsrook.qbits.webhooks.shared.signing.WebhookSecret;
 import com.kingsrook.qbits.webhooks.support.SystemWrites;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
@@ -41,6 +40,7 @@ import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
 import com.kingsrook.qqq.backend.core.utils.ValueUtils;
+import com.kingsrook.qqq.backend.core.utils.webhooks.WebhookSecret;
 import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
 
 

@@ -38,7 +38,6 @@ import com.kingsrook.qbits.webhooks.registry.WebhooksRegistry;
 import com.kingsrook.qbits.webhooks.secrets.EnvironmentSecrets;
 import com.kingsrook.qbits.webhooks.shared.http.AddressRules;
 import com.kingsrook.qbits.webhooks.shared.http.SafeHttpException;
-import com.kingsrook.qbits.webhooks.shared.signing.WebhookSecret;
 import com.kingsrook.qbits.webhooks.support.SystemWrites;
 import com.kingsrook.qqq.backend.core.actions.customizers.TableCustomizerInterface;
 import com.kingsrook.qqq.backend.core.actions.permissions.PermissionsHelper;
@@ -50,6 +49,7 @@ import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.statusmessages.BadInputStatusMessage;
 import com.kingsrook.qqq.backend.core.utils.StringUtils;
 import com.kingsrook.qqq.backend.core.utils.ValueUtils;
+import com.kingsrook.qqq.backend.core.utils.webhooks.WebhookSecret;
 
 
 /*******************************************************************************

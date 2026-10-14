@@ -2,12 +2,12 @@
 
 Signed, SSRF-safe outbound webhooks for QQQ applications. Admins add **endpoints** and **subscribe** them to event types: table inserts, updates and deletes (in-process or from the ESB), process completions and failures, and custom domain events. The qbit queues one **delivery** per event per endpoint in the same transaction as the change. It then signs each delivery in the [Standard Webhooks](https://www.standardwebhooks.com/) format and sends it with retries, backoff, dead letters and endpoint health. Every row is a normal QQQ table, and the app has a home dashboard.
 
-Design: [QRun-IO/qqq#1105](https://github.com/QRun-IO/qqq/pull/1105) (`docs/specs/2026-10-12-qbit-webhooks-assessment.md`), and [docs/DESIGN.md](docs/DESIGN.md) for what 1.0 implements. The shared signer and safe HTTP client are in QQQ core from 4.1.0-RC.5 ([QRun-IO/qqq#1109](https://github.com/QRun-IO/qqq/pull/1109)).
+Design: [QRun-IO/qqq#1105](https://github.com/QRun-IO/qqq/pull/1105) (`docs/specs/2026-10-12-qbit-webhooks-assessment.md`), and [docs/DESIGN.md](docs/DESIGN.md) for what 1.0 implements. Signing and secret generation use QQQ core directly; the local safe HTTP client remains pending a separate migration. Both primitives are available in QQQ core from 4.1.0-RC.5 ([QRun-IO/qqq#1109](https://github.com/QRun-IO/qqq/pull/1109)).
 
 ## Requirements
 
 - Java 21
-- QQQ 4.1.0-RC.4 or later (`qqq-backend-core`). Two modules are optional:
+- QQQ 4.1.0-RC.5 or later (`qqq-backend-core`). Two modules are optional:
   - `qqq-middleware-api`, for payloads rendered through a QQQ API version.
   - `qqq-esb`, for ESB topics as an event source.
 - A SQL backend for the five tables (DDL in [docs/ddl/webhooks-postgres.sql](docs/ddl/webhooks-postgres.sql)), and a QQQ scheduler for delivery.
