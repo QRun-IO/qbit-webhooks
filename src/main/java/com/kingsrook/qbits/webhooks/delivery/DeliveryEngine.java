@@ -42,8 +42,6 @@ import com.kingsrook.qbits.webhooks.secrets.EndpointSecrets;
 import com.kingsrook.qbits.webhooks.shared.http.SafeHttpClient;
 import com.kingsrook.qbits.webhooks.shared.http.SafeHttpException;
 import com.kingsrook.qbits.webhooks.shared.http.SafeHttpResponse;
-import com.kingsrook.qbits.webhooks.shared.signing.WebhookSecret;
-import com.kingsrook.qbits.webhooks.shared.signing.WebhookSigner;
 import com.kingsrook.qbits.webhooks.support.SystemWrites;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
@@ -55,6 +53,8 @@ import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
 import com.kingsrook.qqq.backend.core.utils.StringUtils;
 import com.kingsrook.qqq.backend.core.utils.ValueUtils;
+import com.kingsrook.qqq.backend.core.utils.webhooks.WebhookSecret;
+import com.kingsrook.qqq.backend.core.utils.webhooks.WebhookSigner;
 import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
 
 

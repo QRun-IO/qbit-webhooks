@@ -31,7 +31,7 @@ Design: `docs/DESIGN.md` (from QRun-IO/qqq#1105). Inbound webhooks are phase 2 (
     - `DeliveryEngine` (claim, send, outcome), `EndpointHealth`
     - `WebhooksAlerts` (reflective Alerts SPI)
   - `secrets` (AES-GCM, env references, rotation), `processes`, `app` (home, secret widget), `permissions`, `esb`, `support/SystemWrites`.
-  - `shared`: INTERNAL COPY of the core signer and safe HTTP client (QRun-IO/qqq#1109). Replace with `core.utils.webhooks` / `core.utils.http` at QQQ 4.1.0-RC.5 (DESIGN section 11). Keep it identical to core until then.
+  - Signing uses `core.utils.webhooks` directly at the QQQ 4.1.0-RC.5 baseline (QRun-IO/qqq#1160). `shared.http` remains an internal copy of the safe HTTP client pending a separate migration to `core.utils.http` (DESIGN section 11).
 
 ## Invariants
 
