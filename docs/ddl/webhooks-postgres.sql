@@ -7,6 +7,18 @@
 -- an event being queued twice, and (delivery_id, attempt_number) on
 -- webhooks_delivery_attempt is the claim that stops two replicas sending the
 -- same attempt.
+--
+-- Foreign keys (named fk_<table>_<column>):
+--   endpoint_secret.endpoint_id, subscription.endpoint_id -> endpoint  CASCADE:
+--     an endpoint's secrets and subscriptions are its own configuration, so
+--     deleting the endpoint (webhooks.admin) removes them.
+--   delivery.endpoint_id, delivery_attempt.endpoint_id -> endpoint      RESTRICT:
+--     delivery history keeps its endpoint; cancel and Delete Deliveries first.
+--   delivery.subscription_id -> subscription                           SET NULL:
+--     a delivery outlives the subscription that queued it.
+--   delivery_attempt.delivery_id -> delivery                           CASCADE:
+--     attempts belong to their delivery (Retention deletes both).
+-- Existing databases: run webhooks-foreign-keys-upgrade.sql.
 
 CREATE TABLE webhooks_endpoint
 (
@@ -40,7 +52,7 @@ CREATE TABLE webhooks_endpoint_secret
    id SERIAL PRIMARY KEY,
    create_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
    modify_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-   endpoint_id INTEGER NOT NULL REFERENCES webhooks_endpoint (id),
+   endpoint_id INTEGER NOT NULL CONSTRAINT fk_webhooks_endpoint_secret_endpoint_id REFERENCES webhooks_endpoint (id) ON DELETE CASCADE,
    status VARCHAR(20) DEFAULT 'ACTIVE',
    source VARCHAR(20) NOT NULL,
    secret_ref VARCHAR(100),
@@ -59,7 +71,7 @@ CREATE TABLE webhooks_subscription
    id SERIAL PRIMARY KEY,
    create_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
    modify_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-   endpoint_id INTEGER NOT NULL REFERENCES webhooks_endpoint (id),
+   endpoint_id INTEGER NOT NULL CONSTRAINT fk_webhooks_subscription_endpoint_id REFERENCES webhooks_endpoint (id) ON DELETE CASCADE,
    event_type_name VARCHAR(200) NOT NULL,
    active_status VARCHAR(20) DEFAULT 'ACTIVE',
    description VARCHAR(250),
@@ -83,8 +95,8 @@ CREATE TABLE webhooks_delivery
    modify_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
    event_id VARCHAR(40) NOT NULL,
    event_type_name VARCHAR(200) NOT NULL,
-   endpoint_id INTEGER NOT NULL,
-   subscription_id INTEGER,
+   endpoint_id INTEGER NOT NULL CONSTRAINT fk_webhooks_delivery_endpoint_id REFERENCES webhooks_endpoint (id) ON DELETE RESTRICT,
+   subscription_id INTEGER CONSTRAINT fk_webhooks_delivery_subscription_id REFERENCES webhooks_subscription (id) ON DELETE SET NULL,
    source VARCHAR(20),
    source_table VARCHAR(100),
    source_record_id VARCHAR(100),
@@ -113,14 +125,16 @@ CREATE INDEX webhooks_delivery_status_ix ON webhooks_delivery (status, modify_da
 
 CREATE INDEX webhooks_delivery_delivered_ix ON webhooks_delivery (delivered_date);
 
+CREATE INDEX webhooks_delivery_subscription_ix ON webhooks_delivery (subscription_id);
+
 
 CREATE TABLE webhooks_delivery_attempt
 (
    id SERIAL PRIMARY KEY,
    create_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
    modify_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-   delivery_id INTEGER NOT NULL,
-   endpoint_id INTEGER NOT NULL,
+   delivery_id INTEGER NOT NULL CONSTRAINT fk_webhooks_delivery_attempt_delivery_id REFERENCES webhooks_delivery (id) ON DELETE CASCADE,
+   endpoint_id INTEGER NOT NULL CONSTRAINT fk_webhooks_delivery_attempt_endpoint_id REFERENCES webhooks_endpoint (id) ON DELETE RESTRICT,
    attempt_number INTEGER NOT NULL,
    outcome VARCHAR(20) NOT NULL,
    claimed_by VARCHAR(100),
