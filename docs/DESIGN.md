@@ -6,7 +6,7 @@
 | # | Decision |
 |---|---|
 | D1 | Enhance the existing qbit into 1.0; breaking changes allowed |
-| D2 | The signer and SSRF-safe client live in `qqq-backend-core` (QRun-IO/qqq#1109). This qbit carries an identical internal copy in `com.kingsrook.qbits.webhooks.shared` until QQQ 4.1.0-RC.5 is published (see section 11) |
+| D2 | The signer and SSRF-safe client live in `qqq-backend-core` (QRun-IO/qqq#1109). Signing uses core directly at the QQQ 4.1.0-RC.5 baseline; the internal HTTP copy remains pending a separate migration (see section 11) |
 | D3 | Tables renamed to `webhooks_*` |
 | D4 | Internal and private targets blocked by default; admin-only allowlist per endpoint |
 | D5 | Inbound is phase 2, in this qbit |
@@ -265,10 +265,16 @@ Goal: verify and record signed callbacks from third parties (Authentik, GitHub, 
 
 ## 11. Moving to the core primitives (QQQ 4.1.0-RC.5)
 
-QRun-IO/qqq#1109 adds the same classes to `qqq-backend-core` (`com.kingsrook.qqq.backend.core.utils.webhooks` and `...utils.http`). When RC.5 is on Maven Central:
+QRun-IO/qqq#1160 (F11) migrates signing to the released `qqq-bom-pom` 4.1.0-RC.5 baseline. Delivery signing, secret generation/rotation and receiver verification use `com.kingsrook.qqq.backend.core.utils.webhooks` directly. The local `shared.signing` package is removed; endpoints, encrypted secret storage and delivery remain in this qbit. Inbound routes are still phase 2 (design only).
 
-1. Bump `qqq.snapshot.version` to `4.1.0-RC.5`.
-2. Delete `src/main/java/com/kingsrook/qbits/webhooks/shared/` and its tests.
-3. Change the imports (`shared.signing` to `core.utils.webhooks`, `shared.http` to `core.utils.http`).
+Comparison against core sources at tag `v4.1.0-RC.5` found no executable differences in `WebhookSigner`, `WebhookVerifier`, `WebhookSecret` or `WebhookVerificationException`; only package names, copyright years and migration comments differed. No compatibility adapter is needed:
 
-The behaviour is identical, and the classes were kept the same on purpose.
+- Headers remain `webhook-id`, `webhook-timestamp`, `webhook-signature` (case-insensitive when verifying).
+- HMAC-SHA256 signs UTF-8 `id.timestamp.` followed by unchanged body bytes; signatures are padded Base64 with `v1,` and a single space between rotation signatures, in secret-list order.
+- Secrets remain `whsec_` plus padded Base64 key bytes; unprefixed secrets use trimmed UTF-8 bytes. Generation uses 32 bytes, with a 16-byte minimum for imported keys.
+- Default timestamp tolerance remains five minutes in either direction, including the boundary.
+- Verification accepts any matching `v1` entry with any known secret and ignores unknown signature versions.
+
+Signing contract tests retain the reference vector and test independent local HMAC signing against core verification and core signing against local verification, including two-secret rotation and exact tolerance boundaries. Delivery integration tests verify actual requests with core.
+
+The `shared.http` copy is outside F11 and remains for a separate migration to `com.kingsrook.qqq.backend.core.utils.http`.

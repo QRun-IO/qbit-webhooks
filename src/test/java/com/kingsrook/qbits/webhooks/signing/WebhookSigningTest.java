@@ -18,17 +18,26 @@
  * limitations under the License.
  */
 
-package com.kingsrook.qbits.webhooks.shared.signing;
+package com.kingsrook.qbits.webhooks.signing;
 
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.kingsrook.qqq.backend.core.utils.webhooks.WebhookSecret;
+import com.kingsrook.qqq.backend.core.utils.webhooks.WebhookSigner;
+import com.kingsrook.qqq.backend.core.utils.webhooks.WebhookVerificationException;
+import com.kingsrook.qqq.backend.core.utils.webhooks.WebhookVerifier;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -36,12 +45,91 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 
 /*******************************************************************************
- ** Unit test for WebhookSecret, WebhookSigner and WebhookVerifier.
+ ** Qbit wire contract and interoperability with the released core primitives.
  *******************************************************************************/
 class WebhookSigningTest
 {
    private static final Instant NOW  = Instant.ofEpochSecond(1_760_000_000L);
    private static final byte[]  BODY = "{\"type\":\"cms_blog_post.updated\",\"id\":42}".getBytes(StandardCharsets.UTF_8);
+
+
+
+   /*******************************************************************************
+    ** Independent local HMAC and core interoperate without re-encoding the body.
+    ** The reference uses literal wire names and prefixes to detect contract drift.
+    *******************************************************************************/
+   @Test
+   void testLocalAndCoreInteropWithRotation() throws Exception
+   {
+      List<String> texts = List.of("a-raw-shared-secret-of-enough-length", "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw");
+      List<WebhookSecret> secrets = texts.stream().map(WebhookSecret::parse).toList();
+      for(byte[] body : List.of(BODY, new byte[0], new byte[] { 0, (byte) 0xff, (byte) 0xc3, (byte) 0xa9, 10 }))
+      {
+         String first = localSignature("evt_interop", "1760000000", body, texts.get(0));
+         String second = localSignature("evt_interop", "1760000000", body, texts.get(1));
+         Map<String, String> local = Map.of("webhook-id", "evt_interop", "webhook-timestamp", "1760000000",
+            "webhook-signature", "v1," + first + " v1," + second);
+         Map<String, String> core = WebhookSigner.headers("evt_interop", NOW, body, secrets);
+         assertThat(core).isEqualTo(local);
+         for(int i = 0; i < secrets.size(); i++)
+         {
+            verifier(List.of(secrets.get(i))).verify(local, body);
+            assertThat(localVerify(core, body, texts.get(i))).isTrue();
+         }
+         assertThat(localVerify(core, body, "an-unrelated-secret-of-enough-length")).isFalse();
+         verifier(secrets).verify(WebhookSigner.headers("evt_interop", NOW, body, List.of(secrets.get(1))), body);
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** The five-minute window includes both boundaries, but not the next second.
+    *******************************************************************************/
+   @Test
+   void testExactTimestampTolerance()
+   {
+      assertThat(WebhookVerifier.DEFAULT_TOLERANCE).isEqualTo(Duration.ofSeconds(300));
+      WebhookSecret secret = WebhookSecret.generate();
+      for(long offset : new long[] { -300, 300 })
+      {
+         assertDoesNotThrow(() -> verifier(List.of(secret)).verify(WebhookSigner.headers("evt_edge", NOW.plusSeconds(offset), BODY, List.of(secret)), BODY));
+      }
+      for(long offset : new long[] { -301, 301 })
+      {
+         assertThatThrownBy(() -> verifier(List.of(secret)).verify(WebhookSigner.headers("evt_edge", NOW.plusSeconds(offset), BODY, List.of(secret)), BODY))
+            .isInstanceOf(WebhookVerificationException.class)
+            .extracting(e -> ((WebhookVerificationException) e).getReason())
+            .isEqualTo(WebhookVerificationException.Reason.TIMESTAMP_OUT_OF_TOLERANCE);
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** Test-only reference HMAC, independent of core signing and secret parsing.
+    *******************************************************************************/
+   private static String localSignature(String id, String timestamp, byte[] body, String text) throws Exception
+   {
+      byte[] key = text.startsWith("whsec_") ? Base64.getDecoder().decode(text.substring(6)) : text.getBytes(StandardCharsets.UTF_8);
+      Mac mac = Mac.getInstance("HmacSHA256");
+      mac.init(new SecretKeySpec(key, "HmacSHA256"));
+      mac.update((id + "." + timestamp + ".").getBytes(StandardCharsets.UTF_8));
+      return (Base64.getEncoder().encodeToString(mac.doFinal(body)));
+   }
+
+
+
+   /*******************************************************************************
+    ** Test-only receiver checks rotation signatures independently of core.
+    *******************************************************************************/
+   private static boolean localVerify(Map<String, String> headers, byte[] body, String secret) throws Exception
+   {
+      byte[] expected = localSignature(headers.get("webhook-id"), headers.get("webhook-timestamp"), body, secret).getBytes(StandardCharsets.US_ASCII);
+      return (Arrays.stream(headers.get("webhook-signature").split(" "))
+         .filter(part -> part.startsWith("v1,"))
+         .anyMatch(part -> MessageDigest.isEqual(expected, part.substring(3).getBytes(StandardCharsets.US_ASCII))));
+   }
 
 
 

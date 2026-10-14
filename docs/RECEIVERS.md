@@ -28,6 +28,9 @@ webhook-attempt: 1
 ## Java (QQQ core 4.1.0-RC.5 or later)
 
 ```java
+import com.kingsrook.qqq.backend.core.utils.webhooks.WebhookSecret;
+import com.kingsrook.qqq.backend.core.utils.webhooks.WebhookVerifier;
+
 WebhookVerifier verifier = new WebhookVerifier(List.of(WebhookSecret.parse(System.getenv("WEBHOOK_SECRET"))));
 verifier.verify(headersAsMap, rawBodyBytes);   // throws WebhookVerificationException with a safe reason
 ```
