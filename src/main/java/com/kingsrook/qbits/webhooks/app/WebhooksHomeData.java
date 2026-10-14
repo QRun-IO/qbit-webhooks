@@ -26,15 +26,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import com.kingsrook.qbits.webhooks.WebhooksRuntime;
-import com.kingsrook.qbits.webhooks.metadata.WebhooksEnums.ActiveStatus;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksEnums.AttemptOutcome;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksEnums.DeliveryStatus;
-import com.kingsrook.qbits.webhooks.metadata.WebhooksEnums.HealthStatus;
-import com.kingsrook.qbits.webhooks.metadata.WebhooksEnums.SecretStatus;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksTables;
 import com.kingsrook.qqq.backend.core.actions.tables.CountAction;
 import com.kingsrook.qqq.backend.core.actions.tables.QueryAction;
@@ -59,7 +54,6 @@ public final class WebhooksHomeData
    private static final int ATTEMPT_SAMPLE = 20000;
 
    private Instant       now;
-   private int           endpointCount;
    private int           delivered24h;
    private int           failedAttempts24h;
    private int           rateLimited24h;
@@ -69,8 +63,6 @@ public final class WebhooksHomeData
    private Long          p95Millis;
    private final int[]   hourlyOk     = new int[24];
    private final int[]   hourlyFailed = new int[24];
-   private final List<QRecord> attention   = new ArrayList<>();
-   private final List<String>  attentionWhy = new ArrayList<>();
    private final List<QRecord> recentDeadLetters = new ArrayList<>();
 
 
@@ -83,24 +75,6 @@ public final class WebhooksHomeData
       WebhooksHomeData data  = new WebhooksHomeData();
       data.now = WebhooksRuntime.clock().instant();
       Instant since = data.now.minus(Duration.ofHours(24));
-
-      List<QRecord> endpoints = query(WebhooksTables.ENDPOINT, new QQueryFilter().withOrderBy(new QFilterOrderBy("name")).withLimit(500));
-      data.endpointCount = endpoints.size();
-
-      Set<Integer> withSecret = new HashSet<>();
-      for(QRecord secret : query(WebhooksTables.SECRET, new QQueryFilter(new QFilterCriteria("status", QCriteriaOperator.IN, SecretStatus.ACTIVE.name(), SecretStatus.PREVIOUS.name()))))
-      {
-         withSecret.add(secret.getValueInteger("endpointId"));
-      }
-      for(QRecord endpoint : endpoints)
-      {
-         String why = attentionReason(endpoint, withSecret.contains(endpoint.getValueInteger("id")));
-         if(why != null)
-         {
-            data.attention.add(endpoint);
-            data.attentionWhy.add(why);
-         }
-      }
 
       data.delivered24h = count(WebhooksTables.DELIVERY, new QQueryFilter(new QFilterCriteria("deliveredDate", QCriteriaOperator.GREATER_THAN_OR_EQUALS, since)));
       data.deadLetters = count(WebhooksTables.DELIVERY, new QQueryFilter(new QFilterCriteria("status", QCriteriaOperator.EQUALS, DeliveryStatus.DEAD_LETTER.name())));
@@ -156,39 +130,6 @@ public final class WebhooksHomeData
 
 
    /*******************************************************************************
-    ** Why an endpoint needs attention, or null.
-    *******************************************************************************/
-   static String attentionReason(QRecord endpoint, boolean hasSecret)
-   {
-      String health = endpoint.getValueString("healthStatus");
-      String active = endpoint.getValueString("activeStatus");
-      if(ActiveStatus.DISABLED.name().equals(active) && endpoint.getValue("autoDisabledDate") != null)
-      {
-         return ("Disabled after failing on probation");
-      }
-      if(HealthStatus.UNHEALTHY.name().equals(health))
-      {
-         return ("Unhealthy: deliveries paused");
-      }
-      if(HealthStatus.PROBATION.name().equals(health))
-      {
-         return ("On probation: one try per run");
-      }
-      if(ActiveStatus.ACTIVE.name().equals(active) && !hasSecret && !Boolean.TRUE.equals(endpoint.getValueBoolean("allowUnsigned")))
-      {
-         return ("No signing secret: deliveries are waiting");
-      }
-      Integer failures = endpoint.getValueInteger("consecutiveFailures");
-      if(failures != null && failures > 0)
-      {
-         return (failures + (failures == 1 ? " failure" : " failures") + " in a row");
-      }
-      return (null);
-   }
-
-
-
-   /*******************************************************************************
     ** Query as the viewer.
     *******************************************************************************/
    private static List<QRecord> query(String table, QQueryFilter filter) throws QException
@@ -215,16 +156,6 @@ public final class WebhooksHomeData
    public Instant getNow()
    {
       return (now);
-   }
-
-
-
-   /*******************************************************************************
-    ** Getter for endpointCount.
-    *******************************************************************************/
-   public int getEndpointCount()
-   {
-      return (endpointCount);
    }
 
 
@@ -315,26 +246,6 @@ public final class WebhooksHomeData
    public int[] getHourlyFailed()
    {
       return (hourlyFailed.clone());
-   }
-
-
-
-   /*******************************************************************************
-    ** Endpoints that need attention.
-    *******************************************************************************/
-   public List<QRecord> getAttention()
-   {
-      return (attention);
-   }
-
-
-
-   /*******************************************************************************
-    ** The reason for each endpoint in {@link #getAttention()}.
-    *******************************************************************************/
-   public List<String> getAttentionWhy()
-   {
-      return (attentionWhy);
    }
 
 

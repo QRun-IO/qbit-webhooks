@@ -90,7 +90,7 @@ class WebhooksHomeTest
    void emptyHome() throws Exception
    {
       String html = home();
-      assertThat(html).contains("No endpoints yet").contains("/admin/webhooks/webhooks_endpoint").contains("No delivery attempts in the last 24 hours")
+      assertThat(html).doesNotContain("Endpoints needing attention").contains("No delivery attempts in the last 24 hours")
          .contains("No dead letters").contains("None yet");
    }
 
@@ -120,12 +120,10 @@ class WebhooksHomeTest
       assertThat(data.getDelivered24h()).isEqualTo(3);
       assertThat(data.getFailedAttempts24h()).isEqualTo(3);
       assertThat(data.getDeadLetters()).isEqualTo(1);
-      assertThat(data.getAttention()).hasSize(1);
-      assertThat(data.getAttentionWhy().get(0)).contains("Unhealthy");
       assertThat(data.getP50Millis()).isNotNull();
 
       String html = home();
-      assertThat(html).contains("Delivered (24 h)").contains("attempts in the last 24 hours, by hour").contains("bad &lt;b&gt;").doesNotContain("bad <b>")
+      assertThat(html).contains("Delivered (24 h)").contains("attempts in the last 24 hours, by hour").doesNotContain("Endpoints needing attention").doesNotContain("bad <b>")
          .contains("/admin/webhooks/webhooks_delivery/" + deadOne.getValue("id")).contains("Replay");
       ////////////////////////////////////////////////////////////////
       // readability rules: no fixed widths that force a scroll bar   //
