@@ -117,6 +117,22 @@ Upgrading from 0.x: see [docs/migration-0.x-to-1.0.md](docs/migration-0.x-to-1.0
 ./mvnw verify      # tests, Checkstyle and the JaCoCo gate (always use the wrapper)
 ```
 
+## Health checks
+
+The producer registers passive checks with QQQ central health monitoring (requires the health SPI in QQQ 4.1.0-SNAPSHOT or a subsequent release):
+
+| Name | Kind | Category | Interval |
+|---|---|---|---|
+| `webhooks.endpoint.<id>` | DEPENDENCY | INTEGRATION | 300 seconds |
+| `webhooks.dispatcher` | DEPENDENCY | INTEGRATION | 300 seconds |
+
+Both belong to component `webhooks`. Endpoint checks read the existing state machine: HEALTHY means UP; UNHEALTHY or PROBATION means DEGRADED; automatically disabled means DOWN. Active and automatically disabled endpoints are discovered dynamically; paused and manually disabled endpoints are excluded. Details contain only healthStatus, consecutiveFailures and unhealthySince when present.
+
+The dispatcher reports `oldestPendingSeconds`, measured from the oldest queued delivery's createDate across PENDING, RETRY_WAIT and SENDING. More than 15 minutes is DEGRADED; more than 60 minutes is DOWN. An empty queue reports UP with zero age. Checks do not send requests or change endpoint state.
+
+The home shows one native central status line linking to the webhooks checks in System Health. Disable checks centrally with `health_check.enabled`. The endpoint state machine, alerts and Send Test Event action remain unchanged.
+
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

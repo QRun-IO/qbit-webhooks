@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+- Central `webhooks.endpoint.<id>` and `webhooks.dispatcher` dependency checks, every 300 seconds, using persisted endpoint health and outbox age.
+- A native home status line linking to the webhooks checks in System Health.
+
+### Removed
+- The home's separate endpoint-health attention tile, list and diagnostic queries; endpoint state, alerts and Send Test Event remain unchanged.
+
 ### Changed
 - Require QQQ 4.1.0-RC.5 and use its webhook signer, verifier, secret and verification exception (QRun-IO/qqq#1160, F11). Removed the internal signing package; Java consumers must import `com.kingsrook.qqq.backend.core.utils.webhooks` instead.
 - Signing wire format, timestamp tolerance, rotation, endpoint management, encrypted secret storage and delivery behavior are unchanged.
