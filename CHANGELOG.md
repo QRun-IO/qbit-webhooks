@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+- Foreign keys between all five tables in `docs/ddl/webhooks-postgres.sql`, named `fk_<table>_<column>`: an endpoint's secrets and subscriptions are deleted with it (CASCADE), deliveries and attempts keep their endpoint (RESTRICT: cancel and Delete Deliveries before deleting an endpoint with history), a delivery outlives its subscription (SET NULL) and attempts go with their delivery (CASCADE). New index `webhooks_delivery_subscription_ix`.
+- `docs/ddl/webhooks-foreign-keys-upgrade.sql` for existing databases: records orphan rows in `qqq_fk_quarantine` (nulls nullable references, deletes rows with a missing required parent and keeps them as JSON), replaces the NO ACTION endpoint keys, and is idempotent.
+- `ForeignKeyGuardrailTest` applies the DDL to PostgreSQL 17 (Testcontainers) and fails when a join or table possible-value field between webhooks tables has no foreign key.
+
 ### Changed
 - Require QQQ 4.1.0-RC.5 and use its webhook signer, verifier, secret and verification exception (QRun-IO/qqq#1160, F11). Removed the internal signing package; Java consumers must import `com.kingsrook.qqq.backend.core.utils.webhooks` instead.
 - Signing wire format, timestamp tolerance, rotation, endpoint management, encrypted secret storage and delivery behavior are unchanged.
