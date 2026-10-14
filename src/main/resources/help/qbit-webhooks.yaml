@@ -1,0 +1,38 @@
+bundle: qbit-webhooks
+version: 1
+layer: QBIT
+# Help for the Webhooks app and every webhooks_* table, in the QQQ help-bundle
+# format (qqq#1198). Each table entry says what the table is for and how its rows
+# get created, so an empty table explains itself. WebhooksHelp applies it until
+# the core HelpBundles registry ships in a QQQ release (a stand-in until that ships).
+# Summaries stay under 120 characters (WebhooksTablesGuardrailTest).
+entries:
+  - key: app:webhooks;slot:help
+    summary: "Send signed HTTP notifications to other systems when things happen in this application."
+    content: |
+      The Setup card on the home lists each step with its state and the next step. Nothing is seeded: you choose where events go. Add an endpoint (a URL), give it a signing secret, then subscribe it to event types. The event types you can pick come from the code: the host lists the tables and processes that raise events in the qbit's configuration (`tableEventSources`, `processEventSources`, ESB topics) and can fire custom ones, and the qbit adds a Test event.
+
+  - key: table:webhooks_endpoint;slot:help
+    summary: "A receiver URL that gets webhooks: its status, health, rate limit, timeout and unsigned or internal-network switches."
+    content: |
+      **How rows get created:** an administrator adds one with New (a name and an `https` URL). Then add a signing secret and a subscription. Send Test Event checks it end to end. Health moves on its own (Healthy, Probation, Unhealthy) as deliveries succeed or fail, and an endpoint that keeps failing on probation is disabled.
+
+  - key: table:webhooks_endpoint_secret;slot:help
+    summary: "The signing secrets for an endpoint: generated and encrypted, or the name of an environment variable."
+    content: |
+      **How rows get created:** an administrator adds one on the endpoint, either a generated secret (needs the encryption key variable, `WEBHOOKS_SECRET_KEY` by default) or the name of an environment variable that holds it. The Rotate Signing Secret action adds a new one and keeps the old one signing until Signs Until, so receivers can switch over. Secrets past Signs Until stop signing and are retired by the maintenance job. Secret values are never shown here, only fingerprints.
+
+  - key: table:webhooks_subscription;slot:help
+    summary: "Which events an endpoint receives: event type, optional record filter, detail level and field limits."
+    content: |
+      **How rows get created:** an administrator adds one on the endpoint or with New: pick the endpoint and an event type. The event types listed come from the code-side registry: `<table>.inserted|updated|deleted` for each table in `tableEventSources`, `process.<name>.completed|failed` for `processEventSources`, ESB topics, custom events the host fires, and the Test event. A record filter limits which records fire it.
+
+  - key: table:webhooks_delivery;slot:help
+    summary: "One row per event per endpoint: the stored payload, status, attempts, next attempt and last error."
+    content: |
+      **How rows get created:** written only by the qbit, when an event matches a subscription. Empty means no subscribed event has happened yet. Use Send Now, Cancel Delivery or Replay on dead letters to act on them; the Deliver Webhooks job sends them and retries on a schedule.
+
+  - key: table:webhooks_delivery_attempt;slot:help
+    summary: "One row per HTTP attempt to an endpoint: outcome, status code, duration, response excerpt and error."
+    content: |
+      **How rows get created:** written only by the qbit each time it tries to send a delivery (the claim that stops two replicas sending the same attempt). Empty means nothing has been sent yet. Old rows are purged by the retention job.
