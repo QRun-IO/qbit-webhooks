@@ -90,7 +90,7 @@ class WebhooksHomeTest
    void emptyHome() throws Exception
    {
       String html = home();
-      assertThat(html).contains("No endpoints yet").contains("/admin/webhooks/webhooks_endpoint").contains("No delivery attempts in the last 24 hours")
+      assertThat(html).contains("Setup").contains("Needs setup").contains("No endpoints yet").contains("/admin/webhooks/webhooks_endpoint").contains("No delivery attempts in the last 24 hours")
          .contains("No dead letters").contains("None yet");
    }
 

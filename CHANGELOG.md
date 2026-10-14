@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+- Every table explains itself: a help bundle (`help/qbit-webhooks.yaml`, QQQ help-bundle format) says what each `webhooks_*` table is for and how its rows get created, including where event types come from. It shows on the table screen and when the table is empty. Applied by `WebhooksHelp` (STAND-IN for QRun-IO/qqq#1198); a host's own help is kept.
+- A Setup card on the Webhooks home lists event types, encryption key, endpoints, signing secrets and subscriptions with their state and the next step.
+- `WebhooksTablesGuardrailTest` (each table is used at runtime, seeded or explained, and has help) and a test that a previous secret stops signing at its Signs Until date even before the maintenance job retires it.
+- Nothing is seeded, deliberately: the tables hold the owner's receivers and secrets, or logs.
+
 ### Changed
 - Require QQQ 4.1.0-RC.5 and use its webhook signer, verifier, secret and verification exception (QRun-IO/qqq#1160, F11). Removed the internal signing package; Java consumers must import `com.kingsrook.qqq.backend.core.utils.webhooks` instead.
 - Signing wire format, timestamp tolerance, rotation, endpoint management, encrypted secret storage and delivery behavior are unchanged.

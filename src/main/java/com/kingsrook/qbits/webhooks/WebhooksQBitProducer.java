@@ -28,6 +28,7 @@ import java.util.Map;
 import com.kingsrook.qbits.webhooks.app.WebhooksApp;
 import com.kingsrook.qbits.webhooks.events.WebhooksProcessListener;
 import com.kingsrook.qbits.webhooks.events.WebhooksRecordChangeListener;
+import com.kingsrook.qbits.webhooks.metadata.WebhooksHelp;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksTableCustomizers;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksTables;
 import com.kingsrook.qbits.webhooks.processes.WebhooksProcesses;
@@ -209,6 +210,7 @@ public class WebhooksQBitProducer implements QBitMetaDataProducer<WebhooksQBitCo
       {
          qInstance.withProcessLifecycleListener(new QCodeReference(WebhooksProcessListener.class));
       }
+      WebhooksHelp.apply(qInstance, qBitConfig);
       return (new MetaDataProducerMultiOutput());
    }
 

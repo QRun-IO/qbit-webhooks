@@ -50,6 +50,12 @@ Set `WEBHOOKS_SECRET_KEY` to the base64 of 32 random bytes, so the qbit can gene
 
 Deliveries and attempts are written only by the qbit. People act on them through the actions below.
 
+## Setup and empty states
+
+Nothing in this qbit is seeded: endpoints, secrets and subscriptions are your choices, and deliveries and attempts are logs. Instead the app home has a **Setup** card (event types, encryption key, endpoints, signing secrets, subscriptions, each with its state and next step), and every table has help (`help/qbit-webhooks.yaml`) that explains how its rows get created and shows when the table is empty.
+
+The event types you can subscribe to come from code, not from a table: the host's `tableEventSources`, `processEventSources` and ESB settings, custom events it fires with `Webhooks.fire`, and a built-in Test event, all held in the `WebhooksRegistry`.
+
 ## Permissions
 
 | Permission | Grants |
