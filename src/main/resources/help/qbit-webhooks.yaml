@@ -4,7 +4,7 @@ layer: QBIT
 # Help for the Webhooks app and every webhooks_* table, in the QQQ help-bundle
 # format (qqq#1198). Each table entry says what the table is for and how its rows
 # get created, so an empty table explains itself. WebhooksHelp applies it until
-# the core HelpBundles registry ships in a QQQ release (STAND-IN(core=#1198)).
+# the core HelpBundles registry ships in a QQQ release (a stand-in until that ships).
 # Summaries stay under 120 characters (WebhooksTablesGuardrailTest).
 entries:
   - key: app:webhooks;slot:help

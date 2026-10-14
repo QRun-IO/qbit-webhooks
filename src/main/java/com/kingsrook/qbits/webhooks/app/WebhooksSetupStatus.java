@@ -22,12 +22,10 @@ package com.kingsrook.qbits.webhooks.app;
 
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import com.kingsrook.qbits.webhooks.WebhooksQBitConfig;
 import com.kingsrook.qbits.webhooks.WebhooksRuntime;
-import com.kingsrook.qbits.webhooks.metadata.WebhooksEnums.SecretStatus;
+import com.kingsrook.qbits.webhooks.metadata.WebhooksEnums.ActiveStatus;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksTables;
 import com.kingsrook.qbits.webhooks.processes.WebhooksProcesses;
 import com.kingsrook.qbits.webhooks.registry.WebhookEventType;
@@ -38,9 +36,6 @@ import com.kingsrook.qqq.backend.core.actions.tables.QueryAction;
 import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.model.actions.tables.count.CountInput;
-import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
-import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
-import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QueryInput;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 
@@ -93,13 +88,19 @@ public final class WebhooksSetupStatus
 
       int          endpoints     = count(WebhooksTables.ENDPOINT);
       int          subscriptions = count(WebhooksTables.SUBSCRIPTION);
-      Set<Integer> withSecret    = new HashSet<>();
-      for(QRecord secret : new QueryAction().execute(new QueryInput(WebhooksTables.SECRET).withFilter(new QQueryFilter(
-         new QFilterCriteria("status", QCriteriaOperator.IN, SecretStatus.ACTIVE.name(), SecretStatus.PREVIOUS.name())))).getRecords())
+      int blocked = 0;
+      for(QRecord endpoint : new QueryAction().execute(new QueryInput(WebhooksTables.ENDPOINT)).getRecords())
       {
-         withSecret.add(secret.getValueInteger("endpointId"));
+         ///////////////////////////////////////////////////////////////////////////////////
+         // exactly DeliveryEngine's test: active, signing required, and no usable secret //
+         ///////////////////////////////////////////////////////////////////////////////////
+         if(ActiveStatus.ACTIVE.name().equals(endpoint.getValueString("activeStatus")) && !Boolean.TRUE.equals(endpoint.getValueBoolean("allowUnsigned"))
+            && EndpointSecrets.signingKeys(endpoint.getValueInteger("id")).isEmpty())
+         {
+            blocked++;
+         }
       }
-      return (steps(config.getTablePathPrefix(), config.getEncryptionKeyEnvName(), eventTypes, EndpointSecrets.canGenerate(), endpoints, withSecret.size(), subscriptions));
+      return (steps(config.getTablePathPrefix(), config.getEncryptionKeyEnvName(), eventTypes, EndpointSecrets.canGenerate(), endpoints, blocked, subscriptions));
    }
 
 
@@ -107,7 +108,7 @@ public final class WebhooksSetupStatus
    /*******************************************************************************
     ** The steps, from the numbers (pure, for tests).
     *******************************************************************************/
-   static List<Step> steps(String prefix, String keyEnvName, int eventTypes, boolean canGenerate, int endpoints, int endpointsWithSecret, int subscriptions)
+   static List<Step> steps(String prefix, String keyEnvName, int eventTypes, boolean canGenerate, int endpoints, int blockedEndpoints, int subscriptions)
    {
       String     endpointHref     = prefix + "/" + WebhooksTables.ENDPOINT;
       String     subscriptionHref = prefix + "/" + WebhooksTables.SUBSCRIPTION;
@@ -121,10 +122,10 @@ public final class WebhooksSetupStatus
       steps.add(endpoints > 0
          ? new Step("Endpoints", SET_UP, endpoints + (endpoints == 1 ? " endpoint" : " endpoints"), endpointHref)
          : new Step("Endpoints", NEEDS_SETUP, "Add an endpoint: the URL that receives events", endpointHref));
-      steps.add(endpoints > 0 && endpointsWithSecret >= endpoints
+      steps.add(endpoints > 0 && blockedEndpoints == 0
          ? new Step("Signing secrets", SET_UP, "Every endpoint signs its deliveries", endpointHref)
          : new Step("Signing secrets", NEEDS_SETUP, endpoints == 0 ? "Add an endpoint first, then give it a secret"
-            : (endpoints - endpointsWithSecret) + " endpoint(s) have no secret, so their deliveries wait: open the endpoint and add one", endpointHref));
+            : blockedEndpoints + " active endpoint(s) have no usable signing secret, so their deliveries wait: open the endpoint and add one", endpointHref));
       steps.add(subscriptions > 0
          ? new Step("Subscriptions", SET_UP, subscriptions + (subscriptions == 1 ? " subscription" : " subscriptions"), subscriptionHref)
          : new Step("Subscriptions", NEEDS_SETUP, "Subscribe an endpoint to an event type, or nothing is ever sent", subscriptionHref));

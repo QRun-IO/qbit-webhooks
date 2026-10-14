@@ -152,4 +152,19 @@ class WebhooksTablesGuardrailTest
       }
    }
 
+
+   /*******************************************************************************
+    ** A host's own help in the slot is kept; the bundle only fills empty slots.
+    *******************************************************************************/
+   @Test
+   void hostHelpIsKept() throws Exception
+   {
+      QInstance instance = WebhooksTestSupport.setUp();
+      instance.getTable(WebhooksTables.ENDPOINT).withHelpContent(WebhooksHelp.SLOT, new QHelpContent().withContentAsMarkdown("host text"));
+      instance.getApp("webhooks").withHelpContent(WebhooksHelp.SLOT, new QHelpContent().withContentAsMarkdown("host app text"));
+      WebhooksHelp.apply(instance, WebhooksRuntime.config(instance));
+      assertThat(instance.getTable(WebhooksTables.ENDPOINT).getHelpContent().get(WebhooksHelp.SLOT)).singleElement().extracting(QHelpContent::getContent).isEqualTo("host text");
+      assertThat(instance.getApp("webhooks").getHelpContent().get(WebhooksHelp.SLOT)).singleElement().extracting(QHelpContent::getContent).isEqualTo("host app text");
+   }
+
 }
