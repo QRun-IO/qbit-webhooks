@@ -72,6 +72,7 @@ public final class WebhooksHomeData
    private final List<QRecord> attention   = new ArrayList<>();
    private final List<String>  attentionWhy = new ArrayList<>();
    private final List<QRecord> recentDeadLetters = new ArrayList<>();
+   private List<WebhooksSetupStatus.Step> setup = new ArrayList<>();
 
 
 
@@ -150,6 +151,7 @@ public final class WebhooksHomeData
 
       data.recentDeadLetters.addAll(query(WebhooksTables.DELIVERY, new QQueryFilter(new QFilterCriteria("status", QCriteriaOperator.EQUALS, DeliveryStatus.DEAD_LETTER.name()))
          .withOrderBy(new QFilterOrderBy("id", false)).withLimit(5)));
+      data.setup = WebhooksSetupStatus.load();
       return (data);
    }
 
@@ -345,5 +347,16 @@ public final class WebhooksHomeData
    public List<QRecord> getRecentDeadLetters()
    {
       return (recentDeadLetters);
+   }
+
+
+
+
+   /*******************************************************************************
+    ** The setup steps (state and next step of each thing an admin configures).
+    *******************************************************************************/
+   public List<WebhooksSetupStatus.Step> getSetup()
+   {
+      return (setup);
    }
 }
