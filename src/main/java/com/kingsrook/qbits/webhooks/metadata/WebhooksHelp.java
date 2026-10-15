@@ -21,17 +21,14 @@
 package com.kingsrook.qbits.webhooks.metadata;
 
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.kingsrook.qbits.webhooks.WebhooksQBitConfig;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.help.QHelpContent;
+import com.kingsrook.qqq.backend.core.model.metadata.help.bundles.HelpBundleEntry;
+import com.kingsrook.qqq.backend.core.model.metadata.help.bundles.HelpBundles;
 import com.kingsrook.qqq.backend.core.model.metadata.layout.QAppMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 
@@ -40,12 +37,12 @@ import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
  ** Applies help/qbit-webhooks.yaml (the QQQ help-bundle format) to the
  ** Webhooks app and its webhooks_* tables: what each table is for and how its
  ** rows get created, shown on the table screen and when it is empty.
- ** STAND-IN(core=QRun-IO/qqq#1198, removeBy=4.1.0-RC.8): replace with HelpBundles.register once the pinned
- ** QQQ release includes it; the bundle file stays the same.
+ ** Retains inline empty-state help for hosts without the helpContent table.
+ ** Core owns bundle parsing, registration and persistent help synchronization.
  *******************************************************************************/
 public final class WebhooksHelp
 {
-   public static final String RESOURCE = "/help/qbit-webhooks.yaml";
+   public static final String RESOURCE = "help/qbit-webhooks.yaml";
    public static final String SLOT     = "help";
 
 
@@ -62,35 +59,14 @@ public final class WebhooksHelp
    /*******************************************************************************
     ** The bundle's entries by key, validated (fails startup if malformed).
     *******************************************************************************/
-   public static Map<String, JsonNode> entries() throws QException
+   public static Map<String, HelpBundleEntry> entries() throws QException
    {
-      try(InputStream stream = WebhooksHelp.class.getResourceAsStream(RESOURCE))
+      Map<String, HelpBundleEntry> entries = new LinkedHashMap<>();
+      for(HelpBundleEntry entry : HelpBundles.load(RESOURCE, WebhooksHelp.class.getClassLoader()).getEntries())
       {
-         if(stream == null)
-         {
-            throw (new IOException("missing resource"));
-         }
-         JsonNode bundle = new ObjectMapper(new YAMLFactory()).readTree(stream);
-         if(!"qbit-webhooks".equals(bundle.path("bundle").asText()) || !"QBIT".equals(bundle.path("layer").asText()))
-         {
-            throw (new IOException("invalid bundle header"));
-         }
-         Map<String, JsonNode> entries = new LinkedHashMap<>();
-         for(JsonNode entry : bundle.path("entries"))
-         {
-            String key     = entry.path("key").asText();
-            String summary = entry.path("summary").asText();
-            if(key.isBlank() || summary.isBlank() || summary.length() > 120 || entry.path("content").asText().isBlank() || entries.put(key, entry) != null)
-            {
-               throw (new IOException("invalid or duplicate entry: " + key));
-            }
-         }
-         return (entries);
+         entries.put(entry.getKey(), entry);
       }
-      catch(IOException | RuntimeException e)
-      {
-         throw (new QException("Could not load " + RESOURCE, e));
-      }
+      return (entries);
    }
 
 
@@ -102,17 +78,17 @@ public final class WebhooksHelp
     *******************************************************************************/
    public static void apply(QInstance qInstance, WebhooksQBitConfig config) throws QException
    {
-      Map<String, JsonNode> entries = entries();
+      Map<String, HelpBundleEntry> entries = entries();
       for(QTableMetaData table : qInstance.getTables().values())
       {
-         JsonNode entry = entries.get("table:" + table.getName() + ";slot:" + SLOT);
+         HelpBundleEntry entry = entries.get("table:" + table.getName() + ";slot:" + SLOT);
          if(entry != null && (table.getHelpContent() == null || !table.getHelpContent().containsKey(SLOT)))
          {
             table.withHelpContent(SLOT, content(entry));
          }
       }
-      QAppMetaData app      = qInstance.getApp(config.getAppName());
-      JsonNode     appEntry = entries.get("app:webhooks;slot:" + SLOT);
+      QAppMetaData    app      = qInstance.getApp(config.getAppName());
+      HelpBundleEntry appEntry = entries.get("app:webhooks;slot:" + SLOT);
       if(app != null && appEntry != null && (app.getHelpContent() == null || !app.getHelpContent().containsKey(SLOT)))
       {
          app.withHelpContent(SLOT, content(appEntry));
@@ -124,9 +100,9 @@ public final class WebhooksHelp
    /*******************************************************************************
     ** Summary as the first paragraph, then the content, as markdown.
     *******************************************************************************/
-   static QHelpContent content(JsonNode entry)
+   static QHelpContent content(HelpBundleEntry entry)
    {
-      return (new QHelpContent().withContentAsMarkdown(entry.path("summary").asText().strip() + "\n\n" + entry.path("content").asText().strip()));
+      return (new QHelpContent().withContentAsMarkdown(entry.getSummary().strip() + "\n\n" + entry.getContent().strip()));
    }
 
 }
