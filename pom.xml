@@ -149,6 +149,7 @@
             <filtering>true</filtering>
             <includes>
                <include>help/*.yaml</include>
+               <include>qbit-webhooks.properties</include>
             </includes>
          </resource>
          <resource>
@@ -156,6 +157,7 @@
             <filtering>false</filtering>
             <excludes>
                <exclude>help/*.yaml</exclude>
+               <exclude>qbit-webhooks.properties</exclude>
             </excludes>
          </resource>
       </resources>
