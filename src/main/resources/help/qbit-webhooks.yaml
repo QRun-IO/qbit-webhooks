@@ -1,38 +1,574 @@
 bundle: qbit-webhooks
-version: 1
+version: 1.0.0-SNAPSHOT
 layer: QBIT
-# Help for the Webhooks app and every webhooks_* table, in the QQQ help-bundle
-# format (qqq#1198). Each table entry says what the table is for and how its rows
-# get created, so an empty table explains itself. WebhooksHelp applies it until
-# the core HelpBundles registry ships in a QQQ release (a stand-in until that ships).
-# Summaries stay under 120 characters (WebhooksTablesGuardrailTest).
 entries:
-  - key: app:webhooks;slot:help
-    summary: "Send signed HTTP notifications to other systems when things happen in this application."
-    content: |
-      The Setup card on the home lists each step with its state and the next step. Nothing is seeded: you choose where events go. Add an endpoint (a URL), give it a signing secret, then subscribe it to event types. The event types you can pick come from the code: the host lists the tables and processes that raise events in the qbit's configuration (`tableEventSources`, `processEventSources`, ESB topics) and can fire custom ones, and the qbit adds a Test event.
+- key: app:webhooks;slot:help
+  summary: Send signed event messages to other systems from your application.
+  content: |
+    Webhooks tell outside services (a build, a chat room, another app) that something happened in your application. You add an **Endpoint** (the address to call), then add a **Subscription** that says which events it wants. Each matching event becomes one **Delivery**, which is sent with a signature, retried when it fails, and kept as a record you can inspect.
 
-  - key: table:webhooks_endpoint;slot:help
-    summary: "A receiver URL that gets webhooks: its status, health, rate limit, timeout and unsigned or internal-network switches."
-    content: |
-      **How rows get created:** an administrator adds one with New (a name and an `https` URL). Then add a signing secret and a subscription. Send Test Event checks it end to end. Health moves on its own (Healthy, Probation, Unhealthy) as deliveries succeed or fail, and an endpoint that keeps failing on probation is disabled.
+    Your administrator configures which table changes, process results, message-bus events and custom events are available. Use the **Setup** card to check event types, endpoints, signing secrets and subscriptions. Nothing is seeded; you choose your receivers.
 
-  - key: table:webhooks_endpoint_secret;slot:help
-    summary: "The signing secrets for an endpoint: generated and encrypted, or the name of an environment variable."
-    content: |
-      **How rows get created:** an administrator adds one on the endpoint, either a generated secret (needs the encryption key variable, `WEBHOOKS_SECRET_KEY` by default) or the name of an environment variable that holds it. The Rotate Signing Secret action adds a new one and keeps the old one signing until Signs Until, so receivers can switch over. Secrets past Signs Until stop signing and are retired by the maintenance job. Secret values are never shown here, only fingerprints.
+    The home screen shows deliveries and failures for the last 24 hours, dead letters, how many are waiting, endpoints needing attention, and delivery speed. Under it you can open **Endpoints**, **{{label:webhooks_subscription}}** and **Deliveries**. Signing secrets and attempts are shown inside the endpoint and the delivery.
 
-  - key: table:webhooks_subscription;slot:help
-    summary: "Which events an endpoint receives: event type, optional record filter, detail level and field limits."
-    content: |
-      **How rows get created:** an administrator adds one on the endpoint or with New: pick the endpoint and an event type. The event types listed come from the code-side registry: `<table>.inserted|updated|deleted` for each table in `tableEventSources`, `process.<name>.completed|failed` for `processEventSources`, ESB topics, custom events the host fires, and the Test event. A record filter limits which records fire it.
+    Viewing needs the webhooks view permission, changing endpoints and re-sending needs manage, and secrets, internal-network targets and deleting need admin. Delivery is at least once, so receivers must tolerate a repeat.
+- key: table:webhooks_endpoint;slot:help
+  summary: A web address that receives signed event messages, with its sending limits and health.
+  content: |
+    **How rows get created:** You add a receiver with **New**, then give it a signing secret and subscription.
 
-  - key: table:webhooks_delivery;slot:help
-    summary: "One row per event per endpoint: the stored payload, status, attempts, next attempt and last error."
-    content: |
-      **How rows get created:** written only by the qbit, when an event matches a subscription. Empty means no subscribed event has happened yet. Use Send Now, Cancel Delivery or Replay on dead letters to act on them; the Deliver Webhooks job sends them and retries on a schedule.
+    An endpoint is one receiver. Give it a name, the https address, and a status, then add **{{label:webhooks_subscription}}** to choose what it hears about. Open the record to see its subscriptions, signing secrets and recent deliveries.
 
-  - key: table:webhooks_delivery_attempt;slot:help
-    summary: "One row per HTTP attempt to an endpoint: outcome, status code, duration, response excerpt and error."
-    content: |
-      **How rows get created:** written only by the qbit each time it tries to send a delivery (the claim that stops two replicas sending the same attempt). Empty means nothing has been sent yet. Old rows are purged by the retention job.
+    - By default, the address must be https, with no user name or password in it. It is checked when you save and again on every send.
+    - Addresses on private or internal networks are refused unless an administrator allows them under **Internal Network (Admin Only)**.
+    - Without a signing secret, deliveries wait and are not sent. Add one with **{{label:webhooks_rotate_secret}}** or an environment reference.
+    - Use **{{label:webhooks_send_test}}** to check that the receiver answers and verifies the signature.
+
+    Endpoints that keep failing are paused automatically and eventually disabled; see **{{label:webhooks_endpoint.healthStatus}}**. Deleting an endpoint needs the webhooks admin permission.
+- key: table:webhooks_endpoint;section:identity
+  summary: The name, address and on/off state of the endpoint.
+- key: table:webhooks_endpoint;section:delivery
+  summary: How fast, how patiently and how strictly messages are sent to this endpoint.
+- key: table:webhooks_endpoint;section:health
+  summary: Failure counts and dates the system keeps up to date as it sends.
+- key: table:webhooks_endpoint;section:network
+  summary: Lets this endpoint be an address on an internal network. Only webhook administrators can change it.
+- key: table:webhooks_endpoint;section:subscriptions
+  summary: The events this endpoint is subscribed to.
+- key: table:webhooks_endpoint;section:secrets
+  summary: The secrets used to sign messages to this endpoint.
+- key: table:webhooks_endpoint;section:deliveries
+  summary: The newest deliveries sent to this endpoint.
+- key: table:webhooks_endpoint;section:dates
+  summary: When the endpoint was created and last changed.
+- key: table:webhooks_endpoint;field:name
+  summary: A short unique name for this receiver, used in lists and on the home screen.
+- key: table:webhooks_endpoint;field:description
+  summary: Optional note on what this receiver is for.
+- key: table:webhooks_endpoint;field:url
+  summary: 'Where messages are sent: a public https address, with no user name or password in it.'
+  content: |
+    Messages are sent as a POST with a JSON body. Redirects are not followed, so use the final address.
+
+    The address is checked when you save. A name that cannot be looked up yet is accepted, because DNS may not exist yet, but every send checks it again. Addresses that resolve to private, loopback or other internal networks are refused unless **{{label:webhooks_endpoint.allowInternalTargets}}** is on for this endpoint.
+- key: table:webhooks_endpoint;field:activeStatus
+  summary: 'Whether this endpoint receives messages: {{values:webhooks_active_status}}.'
+  content: |
+    - **Active**: events are queued and sent.
+    - **Paused**: events are still queued, but nothing is sent until you set it back to Active.
+    - **Disabled**: nothing is queued or sent. The system sets this itself after repeated failed probation attempts; see **{{label:webhooks_endpoint.autoDisabledDate}}**.
+- key: table:webhooks_endpoint;field:healthStatus
+  summary: How well sending to this endpoint is going, set automatically from the results.
+  content: |
+    - **Healthy**: sending normally.
+    - **Unhealthy**: after the configured number of failures in a row (10 by default), sending stops.
+    - **Probation**: after the configured unhealthy period (60 minutes by default), one attempt is made per run. A success makes it Healthy again; a failure makes it Unhealthy.
+
+    After the configured number of failed probations (3 by default) the endpoint is set to Disabled. Replies of "too many requests" (429) and policy blocks do not count as failures. **{{label:webhooks_send_now}}** and **{{label:webhooks_send_test}}** ignore health.
+- key: table:webhooks_endpoint;field:serialDelivery
+  summary: Send one message at a time, oldest first, when the receiver needs events in order.
+  content: |
+    When on, the oldest unfinished delivery for this endpoint blocks the rest until it is delivered or becomes a dead letter. When off (default: {{default:webhooks_endpoint.serialDelivery}}), newer messages go ahead while a failing one waits to retry, so order is not guaranteed.
+- key: table:webhooks_endpoint;field:maxPerMinute
+  summary: Caps how many send attempts this endpoint gets per minute. Leave empty for no limit.
+  content: |
+    Must be at least 1. The count is based on the attempts made in the last minute, so it is approximate: a few extra can slip through.
+- key: table:webhooks_endpoint;field:timeoutSeconds
+  summary: How long to wait for the receiver to answer, in seconds, subject to the limits configured for your application.
+  content: |
+    Leave empty to use your application's timeout (10 seconds by default). A send that takes longer counts as a failed attempt.
+- key: table:webhooks_endpoint;field:allowUnsigned
+  summary: Sends messages without a signature when no signing secret exists. Normally leave this off.
+  content: |
+    Unsigned messages still carry the id and timestamp headers, but the receiver cannot prove they came from your application. With this off, an endpoint with no usable secret does not get anything sent.
+- key: table:webhooks_endpoint;field:allowInternalTargets
+  summary: Permits this endpoint to be an address on an internal or private network. Administrators only.
+  content: |
+    Only webhook administrators can turn this on or change it. Even when on, the cloud metadata addresses are always blocked, and when an allowlist is given only those entries are permitted.
+- key: table:webhooks_endpoint;field:internalAllowlist
+  summary: The internal addresses this endpoint may call, separated by commas or spaces. Administrators only.
+  content: |
+    Each entry is a network range (for example 10.0.0.0/24), a single address, an exact host name, or a host name suffix starting with a dot. An entry that cannot be read is rejected when you save. Only used when **{{label:webhooks_endpoint.allowInternalTargets}}** is on.
+- key: table:webhooks_endpoint;field:consecutiveFailures
+  summary: Failed attempts in a row since the last success, counted automatically.
+- key: table:webhooks_endpoint;field:probationFailures
+  summary: How many times a probation attempt has failed, counted automatically. The configured limit controls when it is disabled.
+- key: table:webhooks_endpoint;field:lastSuccessDate
+  summary: When the last delivery to this endpoint succeeded, filled in automatically.
+- key: table:webhooks_endpoint;field:lastFailureDate
+  summary: When the last attempt to this endpoint failed, filled in automatically.
+- key: table:webhooks_endpoint;field:lastFailureMessage
+  summary: The reason the last attempt failed, such as an HTTP status or a network error. Filled in automatically.
+- key: table:webhooks_endpoint;field:unhealthySinceDate
+  summary: When the endpoint last became unhealthy, filled in automatically. Empty while healthy.
+- key: table:webhooks_endpoint;field:autoDisabledDate
+  summary: When the system disabled this endpoint after repeated failed probation attempts. Set automatically.
+  content: |
+    To use the endpoint again, fix the receiver and set **{{label:webhooks_endpoint.activeStatus}}** back to Active.
+- key: table:webhooks_endpoint_secret;slot:help
+  summary: A secret used to sign the messages sent to one endpoint, so the receiver can verify them.
+  content: |
+    **How rows get created:** You use **{{label:webhooks_rotate_secret}}** to generate a secret, or add an environment reference.
+
+    Every message carries a signature made with the endpoint's active secret. The receiver holds the same secret and checks it.
+
+    There are two kinds. A generated secret is created by **{{label:webhooks_rotate_secret}}** and stored encrypted. An environment reference only names a server setting that holds the secret, so the value never lives in the database.
+
+    The value of a generated secret is never shown in lists or results. Webhook administrators can open the secret record and reveal it behind "Show the secret". During a rotation the old secret stays valid for the configured overlap (24 hours by default) and both sign every message, so the receiver can switch over without missing anything. Adding or changing secrets needs the webhooks admin permission.
+- key: table:webhooks_endpoint_secret;section:identity
+  summary: Which endpoint this secret belongs to, and whether it is in use.
+- key: table:webhooks_endpoint_secret;section:data
+  summary: Where the secret comes from, when it signs until, and its fingerprint.
+- key: table:webhooks_endpoint_secret;section:value
+  summary: Lets webhook administrators reveal a generated secret so they can copy it to the receiver.
+- key: table:webhooks_endpoint_secret;section:dates
+  summary: When the secret was created and last changed.
+- key: table:webhooks_endpoint_secret;field:endpointId
+  summary: The endpoint whose messages this secret signs.
+- key: table:webhooks_endpoint_secret;field:status
+  summary: 'Where the secret is in its life: {{values:webhooks_secret_status}}.'
+  content: |
+    - **Active**: the secret in use.
+    - **Previous (still signing until it expires)**: replaced by a newer one but still signing for the overlap, 24 hours by default, so receivers can switch.
+    - **Retired**: expired and no longer used. The maintenance job retires expired secrets when scheduling is enabled.
+- key: table:webhooks_endpoint_secret;field:source
+  summary: Whether the secret is stored encrypted here, or read from a server setting.
+  content: |
+    - **Generated (stored encrypted)**: created by **{{label:webhooks_rotate_secret}}**. You cannot add these by hand.
+    - **Environment reference**: you name a server setting under **{{label:webhooks_endpoint_secret.secretRef}}**; its value is read each time a message is sent.
+- key: table:webhooks_endpoint_secret;field:secretRef
+  summary: The name of the server setting that holds the secret, for environment references only.
+  content: |
+    Enter only the variable name (letters, digits and underscores), never the secret itself. The value in that variable must be a whsec_ secret or at least 16 bytes long; a shorter one is rejected when you save.
+- key: table:webhooks_endpoint_secret;field:encryptedSecret
+  summary: The encrypted form of a generated secret. Filled in automatically and not readable by people.
+- key: table:webhooks_endpoint_secret;field:fingerprint
+  summary: A short code that identifies the secret without revealing it. Filled in automatically.
+  content: |
+    The same fingerprint appears under **Signed With (Fingerprints)** on each attempt, so you can tell which secret signed a message.
+- key: table:webhooks_endpoint_secret;field:expiresDate
+  summary: When a Previous secret stops signing. Set automatically when a secret is replaced.
+  content: |
+    By default, it is 24 hours after the rotation; your application can configure another overlap. An active secret has no end date.
+- key: table:webhooks_endpoint_secret;field:retiredDate
+  summary: When the secret was retired, filled in automatically.
+- key: table:webhooks_endpoint_secret;field:note
+  summary: Optional note, such as who holds the matching copy of the secret.
+- key: table:webhooks_subscription;slot:help
+  summary: Chooses which events go to an endpoint, optionally filtered, and how much of the record is sent.
+  content: |
+    **How rows get created:** You add a subscription and choose an endpoint and event type. Your administrator configures the available events.
+
+    A subscription links one **{{label:webhooks_subscription.endpointId}}** to one **{{label:webhooks_subscription.eventTypeName}}**. When a matching event happens, one delivery is queued for that endpoint.
+
+    An event matches when all of these hold:
+    - the subscription is Active and its endpoint is not Disabled;
+    - the event type is the same;
+    - the **{{label:webhooks_subscription.filterJson}}**, if any, matches the record;
+    - the record is one the subscription is allowed to read.
+
+    Event types look like a table name plus inserted, updated or deleted, or the completed or failed result of a configured process. You can only subscribe to a table's events if you can read that table, and an unknown event type is rejected.
+
+    Use **{{label:webhooks_subscription.detailLevel}}**, **{{label:webhooks_subscription.includeFields}}** and **{{label:webhooks_subscription.excludeFields}}** to control what the message contains. The message is built when the event happens, so retries send exactly the same content.
+- key: table:webhooks_subscription;section:identity
+  summary: The endpoint, the event type and whether the subscription is on.
+- key: table:webhooks_subscription;section:filter
+  summary: An optional note and a filter that limits which records trigger a message.
+- key: table:webhooks_subscription;section:payload
+  summary: How much of the record is sent and how field names are shown.
+- key: table:webhooks_subscription;section:deliveries
+  summary: The newest deliveries made for this subscription.
+- key: table:webhooks_subscription;section:dates
+  summary: When the subscription was created and last changed.
+- key: table:webhooks_subscription;field:endpointId
+  summary: The endpoint that receives the messages for this subscription.
+- key: table:webhooks_subscription;field:eventTypeName
+  summary: The event this subscription listens for, for example a table being inserted, updated or deleted.
+  content: |
+    Pick from the list. Table events are named after the table plus inserted, updated or deleted. Configured process events report completed or failed. Custom and message-bus events may also be available. You need permission to read the table.
+- key: table:webhooks_subscription;field:activeStatus
+  summary: 'Whether this subscription is used: {{values:webhooks_active_status}}.'
+  content: |
+    Only Active subscriptions queue new deliveries.
+- key: table:webhooks_subscription;field:description
+  summary: Optional note on why this subscription exists.
+- key: table:webhooks_subscription;field:filterJson
+  summary: Only send events for records that match this filter. Leave empty to send them all.
+  content: |
+    Enter a query filter as JSON, with criteria on the record's field names. It is checked against the record as it is after the change, with the old values filled in for anything not changed. If the JSON cannot be read, saving fails with a message.
+- key: table:webhooks_subscription;field:detailLevel
+  summary: 'How much of the record each message carries: the full record, only what changed, or just the keys.'
+  content: |
+    - **Full record** (default: {{default:webhooks_subscription.detailLevel}}): the whole record, plus the old record for updates.
+    - **Changed fields only**: the fields that changed, and the record key.
+    - **Keys only**: just the record key, so the receiver fetches the rest itself.
+- key: table:webhooks_subscription;field:includeFields
+  summary: If set, only these fields are sent. Separate names with commas or spaces. Leave empty for all.
+  content: |
+    Use the field names exactly as the record uses them. Combine with **{{label:webhooks_subscription.excludeFields}}** to remove a few.
+- key: table:webhooks_subscription;field:excludeFields
+  summary: Fields that are always left out of the message. Separate names with commas or spaces.
+- key: table:webhooks_subscription;field:apiName
+  summary: Send the record in the form of a published API, with that API's field names. Leave empty for the plain record.
+  content: |
+    Set together with **{{label:webhooks_subscription.apiVersion}}**. Both must be filled in for this to apply.
+- key: table:webhooks_subscription;field:apiVersion
+  summary: The version of the named API used to shape the record.
+- key: table:webhooks_delivery;slot:help
+  summary: One message queued for one endpoint, with its status, attempts and stored content.
+  content: |
+    **How rows get created:** A matching event queues a delivery automatically. Test sends and direct sends also create deliveries.
+
+    The system writes a delivery when an event matches a subscription, and updates it as it is sent. You cannot edit one. Use actions on selected deliveries instead.
+
+    A delivery moves from **Pending** to **Sending**, then **{{label:webhooks_delivery.deliveredDate}}**. If a send fails it follows your application's retry schedule. The default delays are 1, 5, 15, 60 and 240 minutes before the sixth attempt. After the configured attempt limit (6 by default) it becomes a **Dead letter**. A reply of "too many requests" (429) waits as the receiver asked and uses up no attempt.
+
+    - **{{label:webhooks_send_now}}** tries unfinished deliveries immediately.
+    - **{{label:webhooks_replay}}** queues finished or dead deliveries again with the same event id.
+    - **{{label:webhooks_cancel}}** stops pending ones.
+    - **{{label:webhooks_delete_deliveries}}** removes finished ones (administrators only).
+
+    Your application's retention settings determine when finished deliveries are purged. Open a delivery to see each attempt and the exact content that was sent.
+- key: table:webhooks_delivery;section:identity
+  summary: The event type, the endpoint it went to, and the current status.
+- key: table:webhooks_delivery;section:progress
+  summary: How many attempts were made, when the next one is due and how the last one ended.
+- key: table:webhooks_delivery;section:source
+  summary: 'What caused this delivery: the event id and the record or run it came from.'
+- key: table:webhooks_delivery;section:attempts
+  summary: Every send attempt for this delivery, newest included.
+- key: table:webhooks_delivery;section:payloadSection
+  summary: The exact JSON content that is sent to the endpoint.
+- key: table:webhooks_delivery;section:dates
+  summary: When the delivery was queued and last changed.
+- key: table:webhooks_delivery;field:eventId
+  summary: The unique id of the event, sent to the receiver as the webhook-id header so it can ignore repeats.
+  content: |
+    It starts with evt_ and stays the same on every retry and replay. Receivers should remember the ids they have already processed.
+- key: table:webhooks_delivery;field:eventTypeName
+  summary: The kind of event that was sent, for example a table insert or a publish completion.
+- key: table:webhooks_delivery;field:endpointId
+  summary: The endpoint this message is sent to.
+- key: table:webhooks_delivery;field:subscriptionId
+  summary: The subscription that caused this delivery. Empty for a test event.
+- key: table:webhooks_delivery;field:source
+  summary: What kind of thing produced the event.
+  content: |
+    - **Table change**: a record was inserted, updated or deleted in your application.
+    - **ESB event**: the same kind of change, reported by another service.
+    - **Process**: a configured process completed or failed.
+    - **Custom event**: an event raised by your application.
+    - **Channel (another qbit)**: sent straight to one endpoint by another part of the system, such as alerts.
+    - **Test send**: made by **{{label:webhooks_send_test}}**.
+- key: table:webhooks_delivery;field:sourceTable
+  summary: The table the changed record belongs to, when the event came from a record change.
+- key: table:webhooks_delivery;field:sourceRecordId
+  summary: The id of the record that changed, when the event came from a record change.
+- key: table:webhooks_delivery;field:sourceEventId
+  summary: The id of the original event or change this delivery came from, used to avoid queueing it twice.
+- key: table:webhooks_delivery;field:dedupKey
+  summary: An internal key that makes sure the same event is queued only once per subscription.
+- key: table:webhooks_delivery;field:status
+  summary: 'Where the delivery is: {{values:webhooks_delivery_status}}.'
+  content: |
+    - **Pending**: queued, not yet tried.
+    - **Sending**: an attempt is in progress.
+    - **Waiting to retry**: the last attempt failed; the next one is due at **{{label:webhooks_delivery.nextAttemptDate}}**.
+    - **{{label:webhooks_delivery.deliveredDate}}**: the receiver answered with success (2xx).
+    - **Dead letter**: reached the configured attempt limit since the last replay. You can replay or delete it; configured retention may also remove it.
+    - **Cancelled**: stopped with **{{label:webhooks_cancel}}**.
+- key: table:webhooks_delivery;field:attemptCount
+  summary: Total send attempts made for this delivery, including before any replay.
+- key: table:webhooks_delivery;field:cycleAttemptCount
+  summary: Attempts made since the delivery was queued or last replayed. The configured limit makes it a dead letter.
+  content: |
+    Replies of "too many requests" (429) do not count.
+- key: table:webhooks_delivery;field:replayCount
+  summary: How many times this delivery has been queued again with Replay.
+- key: table:webhooks_delivery;field:occurredDate
+  summary: When the event happened, which can be earlier than when the message was sent.
+- key: table:webhooks_delivery;field:nextAttemptDate
+  summary: When the next attempt is due. Empty once the delivery is finished.
+  content: |
+    Retries follow your application's configured delays and attempt limit. A "too many requests" reply honors the receiver's delay up to the configured maximum (one hour by default).
+- key: table:webhooks_delivery;field:leaseExpiresDate
+  summary: While Sending, the time after which another attempt may take over if the first one has stalled.
+  content: |
+    Normally 2 minutes after the attempt started.
+- key: table:webhooks_delivery;field:lastHttpStatus
+  summary: The HTTP status code the receiver answered with on the last attempt. Empty if it did not answer.
+- key: table:webhooks_delivery;field:lastError
+  summary: Why the last attempt failed, such as a network error, a blocked address or an HTTP status.
+- key: table:webhooks_delivery;field:deliveredDate
+  summary: When the receiver accepted the message. Empty until delivered.
+- key: table:webhooks_delivery;field:deadLetterDate
+  summary: When the delivery ran out of attempts and became a dead letter.
+- key: table:webhooks_delivery;field:payloadBytes
+  summary: Size of the stored JSON content in bytes.
+- key: table:webhooks_delivery;field:payload
+  summary: The exact JSON that is sent, built when the event happened, so every retry sends the same content.
+  content: |
+    It contains the event id, type, time, source and a data section with the record. Which fields appear is decided by the subscription's detail level and field lists.
+- key: table:webhooks_delivery_attempt;slot:help
+  summary: One try at sending a delivery, with the result, timing and what the receiver said.
+  content: |
+    **How rows get created:** The system records each attempt to send a delivery. An empty list means no attempt has been recorded.
+
+    The system adds a row each time it sends a delivery, so you can see exactly what happened: the outcome, HTTP status, how long it took, a short excerpt of the receiver's reply, the error if any, and which secrets signed it. Attempts cannot be edited, and they are shown inside the delivery they belong to. Your application's retention settings determine when old attempts are removed.
+- key: table:webhooks_delivery_attempt;section:identity
+  summary: The delivery and endpoint this attempt belongs to, and how it ended.
+- key: table:webhooks_delivery_attempt;section:data
+  summary: The request, the receiver's response and the timing of this attempt.
+- key: table:webhooks_delivery_attempt;section:dates
+  summary: When this attempt record was created and last changed.
+- key: table:webhooks_delivery_attempt;field:deliveryId
+  summary: The delivery that was being sent.
+- key: table:webhooks_delivery_attempt;field:endpointId
+  summary: The endpoint the request went to.
+- key: table:webhooks_delivery_attempt;field:attemptNumber
+  summary: 'Which try this was for the delivery: 1, 2, 3 and so on.'
+- key: table:webhooks_delivery_attempt;field:outcome
+  summary: How the attempt ended.
+  content: |
+    - **In flight**: still being sent.
+    - **Succeeded**: the receiver answered with success (2xx).
+    - **Failed**: an error status, a network problem or a timeout.
+    - **Rate limited (429)**: the receiver asked us to slow down; this uses no attempt.
+    - **Blocked by policy**: the address is not allowed, for example an internal network. It does not count against endpoint health.
+    - **Lease expired**: the sender stopped before recording a result, so a new attempt took over.
+- key: table:webhooks_delivery_attempt;field:claimedBy
+  summary: Which server instance made this attempt, filled in automatically.
+- key: table:webhooks_delivery_attempt;field:leaseExpiresDate
+  summary: The time this attempt was allowed to run until before another could take over.
+- key: table:webhooks_delivery_attempt;field:startDate
+  summary: When the request started.
+- key: table:webhooks_delivery_attempt;field:endDate
+  summary: When the request finished.
+- key: table:webhooks_delivery_attempt;field:durationMillis
+  summary: How long the request took, in milliseconds.
+- key: table:webhooks_delivery_attempt;field:httpStatus
+  summary: The HTTP status code in the receiver's reply. Empty if there was no reply.
+- key: table:webhooks_delivery_attempt;field:responseExcerpt
+  summary: The start of the receiver's reply, up to 2,000 characters; longer replies are marked as cut off.
+- key: table:webhooks_delivery_attempt;field:errorMessage
+  summary: What went wrong, if the attempt did not succeed.
+- key: table:webhooks_delivery_attempt;field:remoteAddress
+  summary: The network address the request actually connected to.
+- key: table:webhooks_delivery_attempt;field:requestUrl
+  summary: The address the request was sent to, as it was when this attempt ran.
+- key: table:webhooks_delivery_attempt;field:signedWith
+  summary: Fingerprints of the secrets that signed this request, separated by spaces.
+  content: |
+    Two fingerprints mean a secret rotation is in progress. Match them against the fingerprints under **Signing Secrets**.
+- key: process:webhooks_send_now;slot:help
+  summary: Tries to send the selected deliveries right now instead of waiting for their turn.
+  content: |
+    Select one or more deliveries and run it. Each unfinished delivery gets an attempt immediately, even if its endpoint is unhealthy or paused.
+
+    Deliveries that are already delivered, are dead letters (use **{{label:webhooks_replay}}** for those) or are cancelled are skipped. The result tells you how many were delivered and how many failed; failed ones go on retrying by the normal schedule. A delivery that another sender is working on at that moment is skipped too.
+
+    Needs the webhooks manage permission.
+- key: process:webhooks_replay;slot:help
+  summary: Queues finished deliveries again, with the same event id and a fresh set of attempts.
+  content: |
+    Use it to resend something the receiver missed: a dead letter, or a delivery you want sent a second time. The delivery goes back to Pending, its attempt count since replay resets, and its **Replays** counter goes up. The event id stays the same, so a receiver that deduplicates will notice the repeat.
+
+    Deliveries that are still being delivered are skipped. It does not send straight away; the next scheduled run picks it up when scheduling is enabled (every 15 seconds by default), or use **{{label:webhooks_send_now}}**.
+
+    Needs the webhooks manage permission.
+- key: process:webhooks_cancel;slot:help
+  summary: Stops the selected deliveries that have not been sent yet, so they will not be tried again.
+  content: |
+    Works on Pending and Waiting to retry deliveries. Deliveries being sent at that moment, and those already delivered, dead or cancelled, are skipped. A cancelled delivery can be queued again later with **{{label:webhooks_replay}}**.
+
+    Needs the webhooks manage permission.
+- key: process:webhooks_delete_deliveries;slot:help
+  summary: Permanently deletes finished deliveries and all of their attempts.
+  content: |
+    Only Delivered, Dead letter and Cancelled deliveries are deleted; anything still pending or waiting is skipped, so cancel it first. This cannot be undone, and the history is lost with it. Replay dead letters before deleting if the receiver still needs them.
+
+    Needs the webhooks admin permission.
+- key: process:webhooks_send_test;slot:help
+  summary: Sends a signed test message to the selected endpoint now and shows whether it was accepted.
+  content: |
+    Use it after adding an endpoint or changing its address or secret. The message has the type webhooks.test and a short note in its data. It ignores the endpoint's health and subscriptions, and it is recorded as a normal delivery with its attempt, so you can inspect it afterwards.
+
+    Disabled endpoints are skipped. The result shows delivered with the HTTP status, or the error. Needs the webhooks manage permission.
+- key: process:webhooks_rotate_secret;slot:help
+  summary: Creates a new signing secret for the endpoint. The old one keeps signing during the configured overlap.
+  content: |
+    The current Active secret becomes Previous and signs alongside the new one during the configured overlap (24 hours by default), so you can update the receiver without losing any message. After that the old secret is retired automatically.
+
+    The new value is not shown in the result. Open the endpoint, go to **Signing Secrets**, open the new secret and reveal it, then copy it to the receiver. It is stored encrypted.
+
+    If the server has no encryption key set, the action is skipped; add an environment reference instead. Needs the webhooks admin permission.
+- key: process:webhooks_deliver;slot:help
+  summary: Send due deliveries and retries when your application enables scheduling.
+  content: |
+    It sends pending deliveries and retries, honoring each endpoint's rate limit, order setting and health, and updates endpoint health from the results. With scheduling enabled, it runs every 15 seconds by default; use **{{label:webhooks_send_now}}** for a single delivery.
+- key: process:webhooks_maintain;slot:help
+  summary: Maintain endpoint health and retire expired secrets, every five minutes when scheduling is enabled.
+  content: |
+    After an endpoint has been Unhealthy for the configured period (60 minutes by default) it goes to Probation so one attempt can be made. Secrets whose overlap has ended are set to Retired.
+- key: process:webhooks_retention;slot:help
+  summary: Remove old finished deliveries and attempts according to your application's retention settings.
+  content: |
+    When scheduling is enabled, this job runs daily. By default, delivered and cancelled deliveries and completed attempts are kept for 400 days; dead letters are kept indefinitely. Your administrator can configure each retention period; zero disables that purge. Deleting a delivery also deletes its attempts. Export any history you need before it expires.
+- key: widget:webhooksEndpointSubscriptions;slot:label
+  summary: The subscriptions that decide which events this endpoint receives.
+- key: widget:webhooksEndpointSecrets;slot:label
+  summary: The signing secrets for this endpoint, with their status and fingerprints. Values are not shown here.
+- key: widget:webhooksEndpointDeliveries;slot:label
+  summary: The most recent deliveries sent to this endpoint.
+- key: widget:webhooksSubscriptionDeliveries;slot:label
+  summary: The most recent deliveries made for this subscription.
+- key: widget:webhooksDeliveryAttempts;slot:label
+  summary: Every send attempt for this delivery, with result, status and timing.
+- key: widget:webhooksHome;slot:label
+  summary: Deliveries, failures, dead letters, backlog, endpoints needing attention and speed over the last 24 hours.
+  content: |
+    The tiles show delivered and failed attempts for the last 24 hours, dead letters, deliveries waiting to send, endpoints needing attention and median and 95th percentile response time. Below are an hourly chart, the endpoints that need attention with the reason, and the newest dead letters.
+- key: widget:webhooksSecretValue;slot:label
+  summary: Reveals the secret value behind a Show button. Webhook administrators only.
+- key: possibleValueSource:webhooks_active_status;slot:help
+  summary: Whether an endpoint or subscription is in use.
+  content: |
+    - **Active**: used normally.
+    - **Paused**: events are still queued for a paused endpoint but not sent; a paused subscription queues nothing new.
+    - **Disabled**: not used. An endpoint can be disabled automatically after repeated failures.
+- key: possibleValueSource:webhooks_health_status;slot:help
+  summary: How well sending to an endpoint is going.
+  content: |
+    - **Healthy**: sending normally.
+    - **Probation**: after an unhealthy spell, one attempt at a time is made to see if it works again.
+    - **Unhealthy**: reached the configured consecutive-failure limit (10 by default), so sending is stopped for a while.
+- key: possibleValueSource:webhooks_delivery_status;slot:help
+  summary: The stage of a delivery.
+  content: |
+    - **Pending**: queued and not yet tried.
+    - **Sending**: an attempt is in progress.
+    - **Waiting to retry**: the last attempt failed and another is scheduled.
+    - **Delivered**: accepted by the receiver.
+    - **Dead letter**: failed too many times and was given up on.
+    - **Cancelled**: stopped by a person.
+- key: possibleValueSource:webhooks_attempt_outcome;slot:help
+  summary: How one send attempt ended.
+  content: |
+    - **In flight**: still running.
+    - **Succeeded**: the receiver accepted it.
+    - **Failed**: error status, network problem or timeout.
+    - **Rate limited (429)**: the receiver asked to slow down.
+    - **Blocked by policy**: the address is not allowed.
+    - **Lease expired**: the sender stopped without recording a result.
+- key: possibleValueSource:webhooks_event_source;slot:help
+  summary: What produced an event.
+  content: |
+    - **Table change**: a record insert, update or delete in your application.
+    - **ESB event**: a change reported by another service.
+    - **Process**: a configured process completing or failing.
+    - **Custom event**: an event raised by your application.
+    - **Channel (another qbit)**: sent directly to one endpoint, for example by alerts.
+    - **Test send**: from **{{label:webhooks_send_test}}**.
+- key: possibleValueSource:webhooks_secret_status;slot:help
+  summary: Where a signing secret is in its life.
+  content: |
+    - **Active**: the secret in use.
+    - **Previous (still signing until it expires)**: replaced, but still signs for the configured overlap (24 hours by default).
+    - **Retired**: no longer used.
+- key: possibleValueSource:webhooks_secret_source;slot:help
+  summary: How a signing secret is kept.
+  content: |
+    - **Generated (stored encrypted)**: created by the system and stored encrypted.
+    - **Environment reference**: only the name of a server setting is stored; the value is read when sending.
+- key: possibleValueSource:webhooks_detail_level;slot:help
+  summary: How much of a record a message contains.
+  content: |
+    - **Full record**: the whole record, plus the old record for updates.
+    - **Changed fields only**: just the fields that changed and the key.
+    - **Keys only**: only the record key.
+- key: possibleValueSource:webhooks_event_type;slot:help
+  summary: 'The events you can subscribe to: table inserts, updates and deletes, and process results and custom events.'
+  content: |
+    Table events are the table name followed by inserted, updated or deleted. You can only pick events for tables you are allowed to read.
+- key: process:webhooks_esb_ingest;slot:help
+  summary: Turns events arriving on the message bus into webhook deliveries; it runs by itself and is not started by hand.
+  content: |
+    It listens on the ESB destinations configured for webhooks. A table event such as a record being inserted, updated or deleted becomes the matching webhook event, and a finished or failed process becomes a process event. Events of unregistered types are ignored. By default, events this server published itself are skipped so nothing is sent twice, and a message delivered again queues nothing new.
+- key: process:webhooks_endpoint.bulkInsert;slot:help
+  summary: Add multiple endpoints from a file.
+  content: |
+    Upload your file, map its columns, and review the preview before running the import.
+
+    You need webhook manage permission to add or edit endpoints and admin permission to delete them. Configure signing secrets and subscriptions separately.
+- key: process:webhooks_endpoint.bulkEdit;slot:help
+  summary: Change selected endpoints together.
+  content: |
+    Select the records you want to change, enter the new values, and review the preview before applying them.
+
+    You need webhook manage permission to add or edit endpoints and admin permission to delete them. Configure signing secrets and subscriptions separately.
+- key: process:webhooks_endpoint.bulkEditWithFile;slot:help
+  summary: Update endpoints using values from a file.
+  content: |
+    Upload your file and map its columns to identify and update existing records. Review the preview before applying changes.
+
+    You need webhook manage permission to add or edit endpoints and admin permission to delete them. Configure signing secrets and subscriptions separately.
+- key: process:webhooks_endpoint.bulkDelete;slot:help
+  summary: Delete selected endpoints.
+  content: |
+    Review the selected records before confirming deletion. This permanently removes records and cannot be undone.
+
+    You need webhook manage permission to add or edit endpoints and admin permission to delete them. Configure signing secrets and subscriptions separately.
+- key: process:webhooks_endpoint_secret.bulkInsert;slot:help
+  summary: Add multiple signing secrets from a file.
+  content: |
+    Upload your file, map its columns, and review the preview before running the import.
+
+    You need webhook admin permission. Add only environment references here; use **{{label:webhooks_rotate_secret}}** to generate an encrypted secret. Never put a secret value in an import file.
+- key: process:webhooks_endpoint_secret.bulkEdit;slot:help
+  summary: Change selected signing secrets together.
+  content: |
+    Select the records you want to change, enter the new values, and review the preview before applying them.
+
+    You need webhook admin permission. Add only environment references here; use **{{label:webhooks_rotate_secret}}** to generate an encrypted secret. Never put a secret value in an import file.
+- key: process:webhooks_endpoint_secret.bulkEditWithFile;slot:help
+  summary: Update signing secrets using values from a file.
+  content: |
+    Upload your file and map its columns to identify and update existing records. Review the preview before applying changes.
+
+    You need webhook admin permission. Add only environment references here; use **{{label:webhooks_rotate_secret}}** to generate an encrypted secret. Never put a secret value in an import file.
+- key: process:webhooks_endpoint_secret.bulkDelete;slot:help
+  summary: Delete selected signing secrets.
+  content: |
+    Review the selected records before confirming deletion. This permanently removes records and cannot be undone.
+
+    You need webhook admin permission. Add only environment references here; use **{{label:webhooks_rotate_secret}}** to generate an encrypted secret. Never put a secret value in an import file.
+- key: process:webhooks_subscription.bulkInsert;slot:help
+  summary: Add multiple subscriptions from a file.
+  content: |
+    Upload your file, map its columns, and review the preview before running the import.
+
+    You need webhook manage permission. Choose valid endpoints and available event types; your access to source records still applies.
+- key: process:webhooks_subscription.bulkEdit;slot:help
+  summary: Change selected subscriptions together.
+  content: |
+    Select the records you want to change, enter the new values, and review the preview before applying them.
+
+    You need webhook manage permission. Choose valid endpoints and available event types; your access to source records still applies.
+- key: process:webhooks_subscription.bulkEditWithFile;slot:help
+  summary: Update subscriptions using values from a file.
+  content: |
+    Upload your file and map its columns to identify and update existing records. Review the preview before applying changes.
+
+    You need webhook manage permission. Choose valid endpoints and available event types; your access to source records still applies.
+- key: process:webhooks_subscription.bulkDelete;slot:help
+  summary: Delete selected subscriptions.
+  content: |
+    Review the selected records before confirming deletion. This permanently removes records and cannot be undone.
+
+    You need webhook manage permission. Choose valid endpoints and available event types; your access to source records still applies.
+- key: possibleValueSource:webhooks_endpoint;slot:help
+  summary: Choose the endpoint that receives your messages.
+- key: possibleValueSource:webhooks_subscription;slot:help
+  summary: Choose the subscription that selects events for an endpoint.
+- key: possibleValueSource:webhooks_delivery;slot:help
+  summary: Choose the delivery whose send attempts you want to inspect.

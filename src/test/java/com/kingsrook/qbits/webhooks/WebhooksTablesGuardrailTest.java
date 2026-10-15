@@ -104,7 +104,7 @@ class WebhooksTablesGuardrailTest
    void everyTableHasEmptyStateHelp() throws Exception
    {
       QInstance instance = WebhooksTestSupport.setUp();
-      assertThat(WebhooksHelp.entries()).allSatisfy((key, entry) -> assertThat(entry.path("summary").asText().length()).as(key).isLessThanOrEqualTo(120));
+      assertThat(WebhooksHelp.entries()).allSatisfy((key, entry) -> assertThat(entry.getSummary().length()).as(key).isLessThanOrEqualTo(120));
       for(String table : WebhooksTables.ALL)
       {
          List<QHelpContent> help = instance.getTable(table).getHelpContent() == null ? null : instance.getTable(table).getHelpContent().get(WebhooksHelp.SLOT);
@@ -112,7 +112,7 @@ class WebhooksTablesGuardrailTest
          assertThat(help.get(0).getContent()).as(table + " help says how rows get created").contains("How rows get created");
       }
       assertThat(instance.getApp("webhooks").getHelpContent()).containsKey(WebhooksHelp.SLOT);
-      assertThat(WebhooksHelp.entries().get("table:webhooks_subscription;slot:help").path("content").asText()).contains("registry");
+      assertThat(WebhooksHelp.entries().get("table:webhooks_subscription;slot:help").getContent()).contains("available events");
       assertThat(WebhooksHelp.entries().keySet()).allMatch(key -> !key.startsWith("table:") || instance.getTable(key.substring(6, key.indexOf(';'))) != null,
          "help names only real tables");
    }
