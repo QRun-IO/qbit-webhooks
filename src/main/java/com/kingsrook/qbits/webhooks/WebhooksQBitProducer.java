@@ -21,10 +21,13 @@
 package com.kingsrook.qbits.webhooks;
 
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import com.kingsrook.qbits.webhooks.app.WebhooksApp;
 import com.kingsrook.qbits.webhooks.events.WebhooksProcessListener;
 import com.kingsrook.qbits.webhooks.events.WebhooksRecordChangeListener;
@@ -75,11 +78,38 @@ public class WebhooksQBitProducer implements QBitMetaDataProducer<WebhooksQBitCo
 {
    public static final String GROUP_ID    = "com.kingsrook.qbits";
    public static final String ARTIFACT_ID = "qbit-webhooks";
-   public static final String VERSION     = "1.0.0";
+   public static final String VERSION     = loadVersion();
 
    private WebhooksQBitConfig qBitConfig;
    private String             namespace;
 
+
+
+   /*******************************************************************************
+    ** The artifact version, from the Maven-filtered qbit-webhooks.properties.
+    *******************************************************************************/
+   private static String loadVersion()
+   {
+      try(InputStream inputStream = WebhooksQBitProducer.class.getClassLoader().getResourceAsStream("qbit-webhooks.properties"))
+      {
+         if(inputStream == null)
+         {
+            throw (new IllegalStateException("Missing qbit-webhooks.properties; build with Maven to generate the artifact version."));
+         }
+         Properties properties = new Properties();
+         properties.load(inputStream);
+         String version = properties.getProperty("version");
+         if(version == null || version.isBlank() || version.contains("${"))
+         {
+            throw (new IllegalStateException("Missing or unfiltered version in qbit-webhooks.properties; build with Maven."));
+         }
+         return (version);
+      }
+      catch(IOException e)
+      {
+         throw (new IllegalStateException("Could not read artifact version from qbit-webhooks.properties.", e));
+      }
+   }
 
 
    /*******************************************************************************

@@ -46,6 +46,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class WebhooksQBitProducerTest
 {
    /*******************************************************************************
+    ** Producer metadata carries the artifact version supplied by Maven.
+    *******************************************************************************/
+   @Test
+   void versionMatchesArtifact()
+   {
+      String artifactVersion = System.getProperty("qbit.artifactVersion");
+      assertThat(artifactVersion).isNotBlank();
+      assertThat(WebhooksQBitProducer.VERSION).isEqualTo(artifactVersion);
+      assertThat(new WebhooksQBitProducer().getQBitMetaData().getVersion()).isEqualTo(artifactVersion);
+   }
+
+
+   /*******************************************************************************
     ** Table names: lowercase snake_case with the webhooks_ prefix; backend
     ** column names snake_case; a valid instance.
     *******************************************************************************/

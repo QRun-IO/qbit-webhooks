@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Fixed
+- QBit metadata now reads the Maven artifact version from a filtered resource, keeping snapshot and release versions in sync with the help bundle.
+
 ### Added
 - Central `webhooks.endpoint.<id>` and `webhooks.dispatcher` dependency checks, every 300 seconds, using persisted endpoint health and outbox age.
 - A native home status line linking to the webhooks checks in System Health.
