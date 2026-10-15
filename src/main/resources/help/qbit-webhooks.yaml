@@ -9,7 +9,7 @@ entries:
 
     Your administrator configures which table changes, process results, message-bus events and custom events are available. Use the **Setup** card to check event types, endpoints, signing secrets and subscriptions. Nothing is seeded; you choose your receivers.
 
-    The home screen shows deliveries and failures for the last 24 hours, dead letters, how many are waiting, endpoints needing attention, and delivery speed. Under it you can open **Endpoints**, **{{label:webhooks_subscription}}** and **Deliveries**. Signing secrets and attempts are shown inside the endpoint and the delivery.
+    The home screen shows deliveries and failures for the last 24 hours, dead letters, how many are waiting, delivery speed, and central endpoint and dispatcher status with a link to System Health. Under it you can open **Endpoints**, **{{label:webhooks_subscription}}** and **Deliveries**. Signing secrets and attempts are shown inside the endpoint and the delivery.
 
     Viewing needs the webhooks view permission, changing endpoints and re-sending needs manage, and secrets, internal-network targets and deleting need admin. Delivery is at least once, so receivers must tolerate a repeat.
 - key: table:webhooks_endpoint;slot:help
@@ -425,9 +425,11 @@ entries:
 - key: widget:webhooksDeliveryAttempts;slot:label
   summary: Every send attempt for this delivery, with result, status and timing.
 - key: widget:webhooksHome;slot:label
-  summary: Deliveries, failures, dead letters, backlog, endpoints needing attention and speed over the last 24 hours.
+  summary: Setup steps, deliveries, failures, dead letters, backlog and speed over the last 24 hours.
   content: |
-    The tiles show delivered and failed attempts for the last 24 hours, dead letters, deliveries waiting to send, endpoints needing attention and median and 95th percentile response time. Below are an hourly chart, the endpoints that need attention with the reason, and the newest dead letters.
+    The Setup card shows configuration steps and their next actions. The tiles show delivered and failed attempts for the last 24 hours, dead letters, deliveries waiting to send and median and 95th percentile response time. Below are an hourly chart and the newest dead letters. Endpoint and dispatcher health appear in the System Health status widget.
+- key: widget:webhooksHealth;slot:label
+  summary: Central endpoint and dispatcher health, with a link to the webhooks checks in System Health.
 - key: widget:webhooksSecretValue;slot:label
   summary: Reveals the secret value behind a Show button. Webhook administrators only.
 - key: possibleValueSource:webhooks_active_status;slot:help

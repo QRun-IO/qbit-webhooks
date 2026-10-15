@@ -90,7 +90,7 @@ class WebhooksQBitProducerTest
       {
          assertThat(child).isNotInstanceOf(QProcessMetaData.class);
       }
-      assertThat(app.getWidgets()).containsExactly("webhooksHome");
+      assertThat(app.getWidgets()).containsExactly("webhooksHealth", "webhooksHome");
       Set<String> endpointWidgets = instance.getTable(WebhooksTables.ENDPOINT).getSections().stream().map(s -> s.getWidgetName()).filter(w -> w != null).collect(Collectors.toSet());
       assertThat(endpointWidgets).contains(WebhooksTables.WIDGET_ENDPOINT_SUBSCRIPTIONS, WebhooksTables.WIDGET_ENDPOINT_SECRETS, WebhooksTables.WIDGET_ENDPOINT_DELIVERIES);
    }
