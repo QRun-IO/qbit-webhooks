@@ -7,7 +7,7 @@ Design: [QRun-IO/qqq#1105](https://github.com/QRun-IO/qqq/pull/1105) (`docs/spec
 ## Requirements
 
 - Java 21
-- QQQ 4.1.0-RC.7 or later (`qqq-backend-core`). Two modules are optional:
+- QQQ 4.1.0-RC.8 or later (`qqq-backend-core`). Two modules are optional:
   - `qqq-middleware-api`, for payloads rendered through a QQQ API version.
   - `qqq-esb`, for ESB topics as an event source.
 - A SQL backend for the five tables (DDL in [docs/ddl/webhooks-postgres.sql](docs/ddl/webhooks-postgres.sql)), and a QQQ scheduler for delivery.
@@ -130,6 +130,22 @@ Upgrading from 0.x: see [docs/migration-0.x-to-1.0.md](docs/migration-0.x-to-1.0
 ```bash
 ./mvnw verify      # tests, Checkstyle and the JaCoCo gate (always use the wrapper)
 ```
+
+## Health checks
+
+The producer registers passive checks with QQQ central health monitoring (requires QQQ 4.1.0-RC.8 or later):
+
+| Name | Kind | Category | Interval |
+|---|---|---|---|
+| `webhooks.endpoint.<id>` | DEPENDENCY | INTEGRATION | 300 seconds |
+| `webhooks.dispatcher` | DEPENDENCY | INTEGRATION | 300 seconds |
+
+Both belong to component `webhooks`. Endpoint checks read the existing state machine: HEALTHY means UP; UNHEALTHY or PROBATION means DEGRADED; automatically disabled means DOWN. Active and automatically disabled endpoints are discovered dynamically; paused and manually disabled endpoints are excluded. Details contain only healthStatus, consecutiveFailures and unhealthySince when present.
+
+The dispatcher reports `oldestPendingSeconds`, measured from the oldest queued delivery's createDate across PENDING, RETRY_WAIT and SENDING. More than 15 minutes is DEGRADED; more than 60 minutes is DOWN. An empty queue reports UP with zero age. Checks do not send requests or change endpoint state.
+
+The home shows one native central status line linking to the webhooks checks in System Health. Disable checks centrally with `health_check.enabled`. The endpoint state machine, alerts and Send Test Event action remain unchanged.
+
 
 ## License
 

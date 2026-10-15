@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import com.kingsrook.qbits.webhooks.WebhooksQBitConfig;
 import com.kingsrook.qbits.webhooks.WebhooksRuntime;
+import com.kingsrook.qbits.webhooks.health.WebhooksHealthWidget;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksEnums.SecretSource;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksEnums.SecretStatus;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksTables;
@@ -34,7 +35,10 @@ import com.kingsrook.qbits.webhooks.permissions.WebhooksPermissions;
 import com.kingsrook.qbits.webhooks.secrets.SecretCipher;
 import com.kingsrook.qbits.webhooks.support.SystemWrites;
 import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.AbstractWidgetRenderer;
+import com.kingsrook.qqq.backend.core.actions.permissions.TablePermissionSubType;
+import com.kingsrook.qqq.backend.core.actions.permissions.UseTablePermissionCustomPermissionChecker;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
+import com.kingsrook.qqq.backend.core.health.HealthMetaDataProvider;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
@@ -47,6 +51,8 @@ import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.layout.QAppMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.layout.QIcon;
+import com.kingsrook.qqq.backend.core.model.metadata.permissions.PermissionLevel;
+import com.kingsrook.qqq.backend.core.model.metadata.permissions.QPermissionRules;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 
 
@@ -57,6 +63,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
  *******************************************************************************/
 public final class WebhooksApp
 {
+   public static final String HEALTH_WIDGET       = "webhooksHealth";
    public static final String HOME_WIDGET         = "webhooksHome";
    public static final String SECRET_VALUE_WIDGET = "webhooksSecretValue";
 
@@ -77,6 +84,10 @@ public final class WebhooksApp
    public static List<QWidgetMetaData> widgets()
    {
       return (List.of(
+         new QWidgetMetaData().withName(HEALTH_WIDGET).withLabel("System Health").withType(WidgetType.STATISTICS.getType())
+            .withCodeReference(new QCodeReference(WebhooksHealthWidget.class)).withGridColumns(12)
+            .withPermissionRules(new QPermissionRules().withLevel(PermissionLevel.HAS_ACCESS_PERMISSION)
+               .withCustomPermissionChecker(UseTablePermissionCustomPermissionChecker.build(HealthMetaDataProvider.CHECK_TABLE, TablePermissionSubType.READ))),
          new QWidgetMetaData().withName(HOME_WIDGET).withLabel("Overview").withType(WidgetType.HTML.getType())
             .withCodeReference(new QCodeReference(HomeRenderer.class)).withGridColumns(12).withIsCard(false)
             .withPermissionRules(WebhooksTables.permissionRules()),
@@ -97,7 +108,7 @@ public final class WebhooksApp
          .withLabel(config.getAppLabel())
          .withIcon(new QIcon("webhook"))
          .withPermissionRules(WebhooksTables.permissionRules())
-         .withWidgets(List.of(HOME_WIDGET));
+         .withWidgets(List.of(HEALTH_WIDGET, HOME_WIDGET));
       for(String name : WebhooksTables.MAIN)
       {
          if(tables.containsKey(name))

@@ -25,7 +25,6 @@ import java.io.Serializable;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.Locale;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksTables;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
@@ -88,7 +87,6 @@ public final class WebhooksHomeView
       setup(html, data);
       kpis(html, data, tablePrefix);
       volume(html, data);
-      attention(html, data, tablePrefix);
       deadLetters(html, data, tablePrefix);
       return (html.append("</div>").toString());
    }
@@ -123,7 +121,6 @@ public final class WebhooksHomeView
       kpi(html, String.valueOf(data.getFailedAttempts24h()), "Failed attempts (24 h)", data.getFailedAttempts24h() > 0, prefix + "/" + WebhooksTables.DELIVERY);
       kpi(html, String.valueOf(data.getDeadLetters()), "Dead letters", data.getDeadLetters() > 0, prefix + "/" + WebhooksTables.DELIVERY);
       kpi(html, String.valueOf(data.getBacklog()), "Waiting to send", false, prefix + "/" + WebhooksTables.DELIVERY);
-      kpi(html, String.valueOf(data.getAttention().size()), "Endpoints needing attention", !data.getAttention().isEmpty(), prefix + "/" + WebhooksTables.ENDPOINT);
       kpi(html, data.getP50Millis() == null ? "None yet" : data.getP50Millis() + " / " + data.getP95Millis() + " ms", "Latency, median / 95th (24 h)", false, null);
       html.append("</div>");
    }
@@ -192,41 +189,6 @@ public final class WebhooksHomeView
    {
       return ("<span><span style=\"display:inline-block;width:.7rem;height:.7rem;border-radius:2px;margin-right:.3rem;vertical-align:-1px;background:" + color + "\"></span>"
          + esc(label) + "</span>");
-   }
-
-
-
-   /*******************************************************************************
-    ** Endpoints needing attention, one card row each.
-    *******************************************************************************/
-   private static void attention(StringBuilder html, WebhooksHomeData data, String prefix)
-   {
-      html.append("<div style=\"").append(CARD).append("\"><h3 style=\"").append(TITLE).append("\">Endpoints needing attention</h3>");
-      if(data.getEndpointCount() == 0)
-      {
-         html.append("<p style=\"").append(MUTED).append("\">No endpoints yet. <a href=\"").append(esc(prefix + "/" + WebhooksTables.ENDPOINT))
-            .append("\">Add an endpoint</a>, then subscribe it to events.</p></div>");
-         return;
-      }
-      if(data.getAttention().isEmpty())
-      {
-         html.append("<p style=\"").append(MUTED).append("\">All ").append(data.getEndpointCount()).append(" endpoints are healthy.</p></div>");
-         return;
-      }
-      List<QRecord> rows = data.getAttention();
-      for(int i = 0; i < rows.size(); i++)
-      {
-         QRecord endpoint = rows.get(i);
-         String  message  = endpoint.getValueString("lastFailureMessage");
-         html.append("<div style=\"").append(ROW).append("\">")
-            .append(cell("Endpoint", "<a href=\"" + esc(prefix + "/" + WebhooksTables.ENDPOINT + "/" + endpoint.getValue("id")) + "\">"
-               + esc(endpoint.getValueString("name")) + "</a>"))
-            .append(cell("Why", esc(data.getAttentionWhy().get(i)) + (message == null ? "" : "<br><span style=\"opacity:.75\">" + esc(clamp(message, 140)) + "</span>")))
-            .append(cell("Last failure", when(endpoint.getValue("lastFailureDate"))))
-            .append(cell("Last success", when(endpoint.getValue("lastSuccessDate"))))
-            .append("</div>");
-      }
-      html.append("</div>");
    }
 
 
