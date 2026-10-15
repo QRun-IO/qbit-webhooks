@@ -176,6 +176,25 @@ class SignedDeliveryTest
 
 
    /*******************************************************************************
+    ** A previous secret stops signing when its Signs Until date passes, even
+    ** before the maintenance job retires it (expiresDate is enforced when
+    ** signing, not only when retiring).
+    *******************************************************************************/
+   @Test
+   void expiredSecretStopsSigningBeforeItIsRetired() throws Exception
+   {
+      Integer endpointId = WebhooksTestSupport.endpoint("crm", receiver.url("/hook"));
+      EndpointSecrets.rotate(endpointId, "expiry test");
+      assertThat(EndpointSecrets.signingKeys(endpointId)).hasSize(2);
+
+      WebhooksTestSupport.CLOCK.advance(Duration.ofHours(25));
+      assertThat(WebhooksTestSupport.all(WebhooksTables.SECRET)).extracting(r -> r.getValueString("status")).contains("PREVIOUS");
+      assertThat(EndpointSecrets.signingKeys(endpointId)).hasSize(1);
+   }
+
+
+
+   /*******************************************************************************
     ** A retry keeps the same webhook-id (the idempotency key) and payload.
     *******************************************************************************/
    @Test

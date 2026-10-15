@@ -29,6 +29,7 @@ import com.kingsrook.qbits.webhooks.app.WebhooksApp;
 import com.kingsrook.qbits.webhooks.events.WebhooksProcessListener;
 import com.kingsrook.qbits.webhooks.events.WebhooksRecordChangeListener;
 import com.kingsrook.qbits.webhooks.health.WebhooksHealthChecks;
+import com.kingsrook.qbits.webhooks.metadata.WebhooksHelp;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksTableCustomizers;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksTables;
 import com.kingsrook.qbits.webhooks.processes.WebhooksProcesses;
@@ -43,6 +44,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.help.bundles.HelpBundles;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.QJoinMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleValueSource;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QProcessMetaData;
@@ -212,6 +214,9 @@ public class WebhooksQBitProducer implements QBitMetaDataProducer<WebhooksQBitCo
       {
          qInstance.withProcessLifecycleListener(new QCodeReference(WebhooksProcessListener.class));
       }
+      // Registration is metadata-only; core guards startup sync when helpContent is absent.
+      HelpBundles.register(qInstance, "help/qbit-webhooks.yaml");
+      WebhooksHelp.apply(qInstance, qBitConfig);
       return (new MetaDataProducerMultiOutput());
    }
 

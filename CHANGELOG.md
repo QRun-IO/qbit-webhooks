@@ -8,11 +8,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Added
 - Central `webhooks.endpoint.<id>` and `webhooks.dispatcher` dependency checks, every 300 seconds, using persisted endpoint health and outbox age.
 - A native home status line linking to the webhooks checks in System Health.
+- Complete host-neutral in-app help bundle for Webhooks, with live metadata references and a `HelpBundleAssertions` coverage test including the optional ESB process.
+- Foreign keys between all five tables in `docs/ddl/webhooks-postgres.sql`, named `fk_<table>_<column>`: an endpoint's secrets and subscriptions are deleted with it (CASCADE), deliveries and attempts keep their endpoint (RESTRICT: cancel and Delete Deliveries before deleting an endpoint with history), a delivery outlives its subscription (SET NULL) and attempts go with their delivery (CASCADE). New index `webhooks_delivery_subscription_ix`.
+- `docs/ddl/webhooks-foreign-keys-upgrade.sql` for existing databases: records orphan rows in `qqq_fk_quarantine` (nulls nullable references, deletes rows with a missing required parent and keeps them as JSON), replaces the NO ACTION endpoint keys, and is idempotent.
+- `ForeignKeyGuardrailTest` applies the DDL to PostgreSQL 17 (Testcontainers) and fails when a join or table possible-value field between webhooks tables has no foreign key.
+- Every table explains itself: a help bundle (`help/qbit-webhooks.yaml`, QQQ help-bundle format) says what each `webhooks_*` table is for and how its rows get created, including where event types come from. It shows on the table screen and when the table is empty. Registered through QQQ `HelpBundles`, with inline empty-state help retained for hosts without `helpContent`; a host's own help is kept.
+- A Setup card on the Webhooks home lists event types, encryption key, endpoints, signing secrets and subscriptions with their state and the next step.
+- `WebhooksTablesGuardrailTest` (each table is used at runtime, seeded or explained, and has help) and a test that a previous secret stops signing at its Signs Until date even before the maintenance job retires it.
+- Nothing is seeded, deliberately: the tables hold the owner's receivers and secrets, or logs.
 
 ### Removed
 - The home's separate endpoint-health attention tile, list and diagnostic queries; endpoint state, alerts and Send Test Event remain unchanged.
 
 ### Changed
+- Pin QQQ to 4.1.0-RC.8 for the released central health API.
+- Pin QQQ to 4.1.0-RC.7 and use its help-bundle parser, registry and guarded startup synchronization. Hosts can override bundle text with a `HOST` bundle.
 - Require QQQ 4.1.0-RC.5 and use its webhook signer, verifier, secret and verification exception (QRun-IO/qqq#1160, F11). Removed the internal signing package; Java consumers must import `com.kingsrook.qqq.backend.core.utils.webhooks` instead.
 - Signing wire format, timestamp tolerance, rotation, endpoint management, encrypted secret storage and delivery behavior are unchanged.
 

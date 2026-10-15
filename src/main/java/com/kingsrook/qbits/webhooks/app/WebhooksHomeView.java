@@ -84,10 +84,29 @@ public final class WebhooksHomeView
    public static String render(WebhooksHomeData data, String tablePrefix)
    {
       StringBuilder html = new StringBuilder("<div style=\"" + HOME + "\">");
+      setup(html, data);
       kpis(html, data, tablePrefix);
       volume(html, data);
       deadLetters(html, data, tablePrefix);
       return (html.append("</div>").toString());
+   }
+
+
+
+   /*******************************************************************************
+    ** The Setup card: each thing to configure, its state and the next step.
+    *******************************************************************************/
+   private static void setup(StringBuilder html, WebhooksHomeData data)
+   {
+      html.append("<div style=\"").append(CARD).append("\"><h3 style=\"").append(TITLE).append("\">Setup</h3>");
+      for(WebhooksSetupStatus.Step step : data.getSetup())
+      {
+         String label = step.href() == null ? esc(step.label()) : "<a href=\"" + esc(step.href()) + "\">" + esc(step.label()) + "</a>";
+         String state = WebhooksSetupStatus.NEEDS_SETUP.equals(step.state()) ? "<span style=\"color:" + FAIL_COLOR + "\">" + esc(step.state()) + "</span>"
+            : WebhooksSetupStatus.SET_UP.equals(step.state()) ? "<span style=\"color:" + OK_COLOR + "\">" + esc(step.state()) + "</span>" : esc(step.state());
+         html.append("<div style=\"").append(ROW).append("\">").append(cell("Step", label)).append(cell("State", state)).append(cell("Next step", esc(step.next()))).append("</div>");
+      }
+      html.append("</div>");
    }
 
 

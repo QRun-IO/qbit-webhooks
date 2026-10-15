@@ -7,7 +7,7 @@ Design: [QRun-IO/qqq#1105](https://github.com/QRun-IO/qqq/pull/1105) (`docs/spec
 ## Requirements
 
 - Java 21
-- QQQ 4.1.0-RC.5 or later (`qqq-backend-core`). Two modules are optional:
+- QQQ 4.1.0-RC.8 or later (`qqq-backend-core`). Two modules are optional:
   - `qqq-middleware-api`, for payloads rendered through a QQQ API version.
   - `qqq-esb`, for ESB topics as an event source.
 - A SQL backend for the five tables (DDL in [docs/ddl/webhooks-postgres.sql](docs/ddl/webhooks-postgres.sql)), and a QQQ scheduler for delivery.
@@ -49,6 +49,20 @@ Set `WEBHOOKS_SECRET_KEY` to the base64 of 32 random bytes, so the qbit can gene
 | `webhooks_delivery_attempt` | One row per HTTP attempt: outcome, status, duration, response excerpt, error, remote address, which secrets signed it. Unique on delivery and attempt number (the claim) | on the delivery |
 
 Deliveries and attempts are written only by the qbit. People act on them through the actions below.
+
+## Setup and empty states
+
+Nothing in this qbit is seeded: endpoints, secrets and subscriptions are your choices, and deliveries and attempts are logs. Instead the app home has a **Setup** card (event types, encryption key, endpoints, signing secrets, subscriptions, each with its state and next step), and every table has help (`help/qbit-webhooks.yaml`) that explains how its rows get created and shows when the table is empty.
+
+The event types you can subscribe to come from code, not from a table: the host's `tableEventSources`, `processEventSources` and ESB settings, custom events it fires with `Webhooks.fire`, and a built-in Test event, all held in the `WebhooksRegistry`.
+
+## In-app help
+
+The producer registers [help/qbit-webhooks.yaml](src/main/resources/help/qbit-webhooks.yaml), a `QBIT` bundle covering the app, tables, fields, actions, widgets and possible-value sources. QQQ synchronizes it on startup when the host has the `helpContent` table; registration is safe without that table, and inline app/table empty-state help remains available.
+
+Hosts can register their own YAML bundle with `layer: HOST` through `HelpBundles.register(qInstance, "help/my-host.yaml")`. Use the same entry keys and roles to override selected text with deployment-specific guidance. Keep live `{{label:...}}`, `{{values:...}}` and `{{default:...}}` references where appropriate. If you customize the app name, supply its help under the customized app key in your host bundle.
+
+`WebhooksHelpBundleTest` uses QQQ's `HelpBundleAssertions` against the produced instance, including the optional ESB process, to check coverage, summary length and live references. Run it with `./mvnw -q -Dtest=WebhooksHelpBundleTest test`; the full `./mvnw -q verify` also runs it. Keep the bundle's literal version aligned with the POM revision when releasing.
 
 ## Permissions
 
@@ -119,7 +133,7 @@ Upgrading from 0.x: see [docs/migration-0.x-to-1.0.md](docs/migration-0.x-to-1.0
 
 ## Health checks
 
-The producer registers passive checks with QQQ central health monitoring (requires the health SPI in QQQ 4.1.0-SNAPSHOT or a subsequent release):
+The producer registers passive checks with QQQ central health monitoring (requires QQQ 4.1.0-RC.8 or later):
 
 | Name | Kind | Category | Interval |
 |---|---|---|---|
