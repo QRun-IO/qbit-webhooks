@@ -23,18 +23,20 @@ package com.kingsrook.qbits.webhooks.health;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
 import com.kingsrook.qbits.webhooks.WebhooksTestSupport;
 import com.kingsrook.qbits.webhooks.app.WebhooksApp;
 import com.kingsrook.qbits.webhooks.support.SystemWrites;
 import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.health.HealthMetaDataProvider;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.actions.widgets.RenderWidgetInput;
 import com.kingsrook.qqq.backend.core.model.dashboard.widgets.StatisticsData;
 import com.kingsrook.qqq.backend.core.model.dashboard.widgets.WidgetType;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.session.QSession;
+import com.kingsrook.qqq.backend.core.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -55,8 +57,15 @@ class WebhooksHealthWidgetTest
       StatisticsData data = render();
       assertThat(data.getCount()).isEqualTo("No checks have run yet");
       assertThat(data.getCountURL()).startsWith("/app/health_check?filter=");
-      String filter = new String(Base64.getDecoder().decode(URLDecoder.decode(data.getCountURL().split("filter=")[1], StandardCharsets.UTF_8)), StandardCharsets.UTF_8);
-      assertThat(filter).contains("component", "webhooks");
+      ///////////////////////////////////////////////////////////////////////////////
+      // plain URL-encoded JSON (the form every qbit uses), not base64              //
+      ///////////////////////////////////////////////////////////////////////////////
+      String filter = URLDecoder.decode(data.getCountURL().split("filter=")[1], StandardCharsets.UTF_8);
+      QQueryFilter decoded = JsonUtils.toObject(filter, QQueryFilter.class);
+      assertThat(decoded.getCriteria()).hasSize(1);
+      assertThat(decoded.getCriteria().getFirst().getFieldName()).isEqualTo("component");
+      assertThat(decoded.getCriteria().getFirst().getOperator()).isEqualTo(QCriteriaOperator.EQUALS);
+      assertThat(decoded.getCriteria().getFirst().getValues()).containsExactly("webhooks");
       new HealthMetaDataProvider().defineAll(instance, WebhooksTestSupport.MEMORY, null);
       QContext.init(instance, new QSession().withPermissions(List.of("health.read")));
       assertThat(render().getCount()).isEqualTo("No checks have run yet");

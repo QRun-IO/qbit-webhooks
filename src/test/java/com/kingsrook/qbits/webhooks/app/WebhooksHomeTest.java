@@ -21,7 +21,12 @@
 package com.kingsrook.qbits.webhooks.app;
 
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import com.kingsrook.qbits.webhooks.WebhooksTestSupport;
 import com.kingsrook.qbits.webhooks.WebhooksTestSupport.Receiver;
 import com.kingsrook.qbits.webhooks.delivery.DeliveryEngine;
@@ -29,11 +34,14 @@ import com.kingsrook.qbits.webhooks.metadata.WebhooksTables;
 import com.kingsrook.qbits.webhooks.permissions.WebhooksPermissions;
 import com.kingsrook.qbits.webhooks.support.SystemWrites;
 import com.kingsrook.qqq.backend.core.context.QContext;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.actions.widgets.RenderWidgetInput;
 import com.kingsrook.qqq.backend.core.model.dashboard.widgets.RawHTML;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.session.QSession;
+import com.kingsrook.qqq.backend.core.utils.JsonUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -129,6 +137,31 @@ class WebhooksHomeTest
       // readability rules: no fixed widths that force a scroll bar   //
       ////////////////////////////////////////////////////////////////
       assertThat(html).doesNotContain("overflow-x").doesNotContain("overflow:auto").doesNotContain("<style").contains("minmax(min(100%");
+   }
+
+
+
+   /*******************************************************************************
+    ** The KPI drill links open the delivery or attempt table with the matching
+    ** filter, as URL-encoded JSON.
+    *******************************************************************************/
+   @Test
+   void kpiDrillLinksAreFilteredJson() throws Exception
+   {
+      String html = home();
+      Matcher matcher = Pattern.compile("href=\"(/admin/webhooks/([a-z_]+)\\?filter=([^\"]+))\"").matcher(html);
+      Map<String, QQueryFilter> byTable = new HashMap<>();
+      int links = 0;
+      while(matcher.find())
+      {
+         links++;
+         QQueryFilter filter = JsonUtils.toObject(URLDecoder.decode(matcher.group(3), StandardCharsets.UTF_8), QQueryFilter.class);
+         byTable.put(matcher.group(2) + ":" + filter.getCriteria().getFirst().getFieldName(), filter);
+      }
+      assertThat(links).isEqualTo(4);
+      assertThat(byTable).containsKeys(WebhooksTables.DELIVERY + ":deliveredDate", WebhooksTables.ATTEMPT + ":startDate", WebhooksTables.DELIVERY + ":status");
+      assertThat(byTable.get(WebhooksTables.DELIVERY + ":status").getCriteria()).hasSize(1);
+      assertThat(byTable.get(WebhooksTables.ATTEMPT + ":startDate").getCriteria().get(1).getOperator()).isEqualTo(QCriteriaOperator.NOT_IN);
    }
 
 

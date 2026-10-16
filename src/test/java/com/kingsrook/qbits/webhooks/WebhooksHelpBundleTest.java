@@ -75,7 +75,7 @@ class WebhooksHelpBundleTest
       assertThat(HelpBundles.of(instance).getBundles()).singleElement().satisfies(bundle ->
       {
          assertThat(bundle.getId()).isEqualTo("qbit-webhooks");
-         assertThat(bundle.getVersion()).isEqualTo("1.0.0-SNAPSHOT");
+         assertThat(bundle.getVersion()).as("the help bundle carries the artifact version").isNotBlank().isEqualTo(System.getProperty("qbit.artifactVersion")).isEqualTo(WebhooksQBitProducer.VERSION);
       });
    }
 }
