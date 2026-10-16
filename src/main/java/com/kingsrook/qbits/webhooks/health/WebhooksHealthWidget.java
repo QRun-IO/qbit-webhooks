@@ -23,7 +23,7 @@ package com.kingsrook.qbits.webhooks.health;
 
 import java.util.List;
 import java.util.Set;
-import com.kingsrook.qqq.backend.core.actions.ai.output.AiLinkBuilder;
+import com.kingsrook.qbits.webhooks.support.FilterLinks;
 import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.AbstractWidgetRenderer;
 import com.kingsrook.qqq.backend.core.actions.tables.QueryAction;
 import com.kingsrook.qqq.backend.core.context.QContext;
@@ -64,7 +64,7 @@ public class WebhooksHealthWidget extends AbstractWidgetRenderer
          }
       }
       return (new RenderWidgetOutput(new StatisticsData().withCount(status).withCountContext("Webhooks - System Health")
-         .withCountURL(AiLinkBuilder.filteredTableHref(HealthMetaDataProvider.CHECK_TABLE,
+         .withCountURL(FilterLinks.href("/app/" + HealthMetaDataProvider.CHECK_TABLE,
             new QQueryFilter(new QFilterCriteria("component", QCriteriaOperator.EQUALS, "webhooks"))))));
    }
 }

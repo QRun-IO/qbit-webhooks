@@ -22,11 +22,18 @@ package com.kingsrook.qbits.webhooks.app;
 
 
 import java.io.Serializable;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import com.kingsrook.qbits.webhooks.metadata.WebhooksEnums.AttemptOutcome;
+import com.kingsrook.qbits.webhooks.metadata.WebhooksEnums.DeliveryStatus;
 import com.kingsrook.qbits.webhooks.metadata.WebhooksTables;
+import com.kingsrook.qbits.webhooks.support.FilterLinks;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.utils.ValueUtils;
 
@@ -117,10 +124,18 @@ public final class WebhooksHomeView
    private static void kpis(StringBuilder html, WebhooksHomeData data, String prefix)
    {
       html.append("<div style=\"").append(KPIS).append("\">");
-      kpi(html, String.valueOf(data.getDelivered24h()), "Delivered (24 h)", false, prefix + "/" + WebhooksTables.DELIVERY);
-      kpi(html, String.valueOf(data.getFailedAttempts24h()), "Failed attempts (24 h)", data.getFailedAttempts24h() > 0, prefix + "/" + WebhooksTables.DELIVERY);
-      kpi(html, String.valueOf(data.getDeadLetters()), "Dead letters", data.getDeadLetters() > 0, prefix + "/" + WebhooksTables.DELIVERY);
-      kpi(html, String.valueOf(data.getBacklog()), "Waiting to send", false, prefix + "/" + WebhooksTables.DELIVERY);
+      String   delivery = prefix + "/" + WebhooksTables.DELIVERY;
+      String   since    = data.getNow().minus(Duration.ofHours(24)).toString();
+      kpi(html, String.valueOf(data.getDelivered24h()), "Delivered (24 h)", false,
+         FilterLinks.href(delivery, new QQueryFilter(new QFilterCriteria("deliveredDate", QCriteriaOperator.GREATER_THAN_OR_EQUALS, since))));
+      kpi(html, String.valueOf(data.getFailedAttempts24h()), "Failed attempts (24 h)", data.getFailedAttempts24h() > 0,
+         FilterLinks.href(prefix + "/" + WebhooksTables.ATTEMPT, new QQueryFilter(new QFilterCriteria("startDate", QCriteriaOperator.GREATER_THAN_OR_EQUALS, since),
+            new QFilterCriteria("outcome", QCriteriaOperator.NOT_IN, AttemptOutcome.SUCCEEDED.name(), AttemptOutcome.RATE_LIMITED.name(), AttemptOutcome.IN_FLIGHT.name()))));
+      kpi(html, String.valueOf(data.getDeadLetters()), "Dead letters", data.getDeadLetters() > 0,
+         FilterLinks.href(delivery, new QQueryFilter(new QFilterCriteria("status", QCriteriaOperator.EQUALS, DeliveryStatus.DEAD_LETTER.name()))));
+      kpi(html, String.valueOf(data.getBacklog()), "Waiting to send", false,
+         FilterLinks.href(delivery, new QQueryFilter(new QFilterCriteria("status", QCriteriaOperator.IN,
+            DeliveryStatus.PENDING.name(), DeliveryStatus.RETRY_WAIT.name(), DeliveryStatus.SENDING.name()))));
       kpi(html, data.getP50Millis() == null ? "None yet" : data.getP50Millis() + " / " + data.getP95Millis() + " ms", "Latency, median / 95th (24 h)", false, null);
       html.append("</div>");
    }
