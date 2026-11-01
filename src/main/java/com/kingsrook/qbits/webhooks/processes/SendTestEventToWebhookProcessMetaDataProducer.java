@@ -73,7 +73,15 @@ public class SendTestEventToWebhookProcessMetaDataProducer extends MetaDataProdu
          ))
          .getProcessMetaData();
 
-      processMetaData.withStep(0, new QFrontendStepMetaData()
+      //////////////////////////////////////////////////////////////////////////
+      // the input screen goes after the first backend (preview) step, not   //
+      // before it: the records chosen when the process starts reach only    //
+      // the steps of that first run, and the preview step is what keeps     //
+      // them (as queryFilterJson) for the later steps. As step 0 the screen //
+      // stopped the first run before any backend step, so the records were  //
+      // lost and the extract failed with "No records were selected".        //
+      //////////////////////////////////////////////////////////////////////////
+      processMetaData.withStep(1, new QFrontendStepMetaData()
          .withName("input")
          .withComponent(new QFrontendComponentMetaData()
             .withType(QComponentType.EDIT_FORM))
